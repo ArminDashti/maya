@@ -12,7 +12,7 @@ Local **Open WebUI** chatbot front door at [http://pc-armin/maya/](http://pc-arm
 
 1. Docker Desktop running
 2. External network `pc-armin-local` (created by nginx-local / other pc-armin stacks)
-3. `cursor-sdk-to-openai-api` listening on the host port in `OPENAI_API_BASE_URL` (check that project's `.env` `PORT`)
+3. `cursor-sdk-to-openai-api` listening on the host port in `OPENAI_API_BASE_URL` (default `http://host.docker.internal:8140/v1`)
 4. `nginx-gateway` up so `http://pc-armin/maya/` routes correctly
 
 ## Quick start
@@ -21,7 +21,7 @@ Local **Open WebUI** chatbot front door at [http://pc-armin/maya/](http://pc-arm
 cd C:\Users\armin\GitHub\maya
 copy .env.example .env
 # Set OPENAI_API_KEY from cursor-sdk-to-openai-api AUTH_KEY if set; else leave "local"
-# Align OPENAI_API_BASE_URL port with cursor-sdk-to-openai-api PORT
+# Align OPENAI_API_BASE_URL with the live cursor-sdk-to-openai-api listen port (often 8140)
 
 .\.armin\deploy\local-docker\install.ps1
 ```

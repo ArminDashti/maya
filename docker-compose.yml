@@ -1,0 +1,35 @@
+# Official Open WebUI (GHCR). LLM via cursor-sdk-to-openai on the host.
+# Docs: https://docs.openwebui.com/getting-started/quick-start/
+# Image: https://github.com/open-webui/open-webui/pkgs/container/open-webui
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:v0.11.3
+    container_name: maya-open-webui
+    restart: "no"
+    ports:
+      - "${PUBLISH_PORT:-3080}:8080"
+    volumes:
+      - maya-open-webui-data:/app/backend/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-http://host.docker.internal:8140/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-local}
+      ENABLE_OLLAMA_API: ${ENABLE_OLLAMA_API:-false}
+      WEBUI_URL: ${WEBUI_URL:-http://pc-armin/maya}
+      WEBUI_ADMIN_EMAIL: ${WEBUI_ADMIN_EMAIL:-armin@local}
+      WEBUI_ADMIN_NAME: ${WEBUI_ADMIN_NAME:-armin}
+      WEBUI_ADMIN_PASSWORD: ${WEBUI_ADMIN_PASSWORD:-dopadopa123}
+      DEFAULT_MODELS: ${DEFAULT_MODELS:-composer-2.5}
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-change-me-maya-local}
+    networks:
+      - default
+      - pc-armin-local
+
+volumes:
+  maya-open-webui-data:
+
+networks:
+  pc-armin-local:
+    name: pc-armin-local
+    external: true

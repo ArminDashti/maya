@@ -1,0 +1,6 @@
+.env
+.env.local
+*.log
+.DS_Store
+.armin/tmp/
+data/

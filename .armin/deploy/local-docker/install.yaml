@@ -1,0 +1,11 @@
+stack_name: maya-local
+image_tag: ghcr.io/open-webui/open-webui:v0.11.3
+compose_file: ../../../docker-compose.yml
+dockerfile: ""
+docker_network: pc-armin-local
+internal_port: "8080"
+publish_port: "3080"
+delete_volume: "no"
+delete_image: "no"
+build_image_on: local
+volume_dir: ""

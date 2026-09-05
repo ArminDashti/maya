@@ -56,4 +56,4 @@ try {
     Pop-Location
 }
 
-Write-Host "Done. Direct: http://127.0.0.1:$($env:PUBLISH_PORT)  Gateway: http://pc-armin/maya/"
+Write-Host "Done. UI: http://pc-armin:$($env:PUBLISH_PORT)/  (bookmark http://pc-armin/maya/ redirects here)"

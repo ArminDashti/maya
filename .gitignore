@@ -4,3 +4,6 @@
 .DS_Store
 .armin/tmp/
 data/
+
+*.exe
+

@@ -11,3 +11,4 @@ data/
 .armin/logs-db.sqlite
 
 *.sqlite
+# === auto: large files (>5MB) ===

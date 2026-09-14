@@ -5,16 +5,17 @@ Local **Open WebUI** chatbot at [http://pc-armin:3080/](http://pc-armin:3080/), 
 | Piece | Source |
 |-------|--------|
 | UI | Official image `ghcr.io/open-webui/open-webui` ([docs](https://docs.openwebui.com/getting-started/quick-start/), [repo](https://github.com/open-webui/open-webui)) |
-| LLM provider | Open WebUI OpenAI-compatible connection → `cursor-sdk-to-openai` (`OPENAI_API_BASE_URL` + `OPENAI_API_KEY`) |
+| LLM providers | Host **Ollama** (`OLLAMA_BASE_URL` → `host.docker.internal:11434`) + OpenAI-compatible `cursor-sdk-to-openai` |
 | Entry | Published port `3080` (Open WebUI must run at URL root — no subdirectory base path) |
 | Gateway bookmark | [nginx-local](https://github.com/ArminDashti/nginx-local) `/maya/` → 302 to `:3080/` |
 
 ## Prerequisites
 
 1. Docker Desktop running
-2. External network `pc-armin-local` (created by nginx-local / other pc-armin stacks)
-3. `cursor-sdk-to-openai` stack up on network `pc-armin-local` (container `cursor-sdk-to-openai-api-1`, port `8140` inside Docker)
-4. Optional: `nginx-gateway` up so `http://pc-armin/maya/` redirects to the UI
+2. Host **Ollama** listening on `11434` with model `pc-armin/maya` (`ollama create pc-armin/maya -f Modelfile` FROM `gemma4:e4b`)
+3. External network `pc-armin-local` (created by nginx-local / other pc-armin stacks)
+4. Optional: `cursor-sdk-to-openai` stack up on network `pc-armin-local` for Cursor models
+5. Optional: `nginx-gateway` up so `http://pc-armin/maya/` redirects to the UI
 
 ## Quick start
 
@@ -51,9 +52,9 @@ Host-only clients (outside Docker) use `http://127.0.0.1:8140/v1` or published `
 ### Load / switch models in the UI
 
 1. Open http://pc-armin:3080/ and sign in (`armin` / `dopadopa123`)
-2. Open the model picker (top of chat) — models come from `GET /v1/models` on `cursor-sdk-to-openai`
-3. Pick `composer-2.5`, `composer-2`, or `auto-smart` (or live ids when the Cursor account can list them)
-4. Admin → Settings → Connections: connection URL must stay `http://cursor-sdk-to-openai-api-1:8140/v1` with key matching API `AUTH_KEY` (or `local` when auth is open)
+2. Open the model picker (top of chat)
+3. Pick **pc-armin/maya** (default: host Ollama `pc-armin/maya:latest` / Gemma + ERP RAG) or **pc-armin/qwen** (Ollama `qwen2.5:3b` + same ERP RAG). Also available: raw `gemma4:e4b` / `pc-armin/maya:latest` / `qwen2.5:3b`, and Cursor models via `cursor-sdk-to-openai` when that stack is up
+4. Admin → Settings → Connections: Ollama URL must stay `http://host.docker.internal:11434`; OpenAI connection URL stays `http://cursor-sdk-to-openai-api-1:8140/v1` when used
 
 ## RAG (ERP reports for user 65778)
 
@@ -62,12 +63,12 @@ Open WebUI Knowledge collection **ERP Reports User 65778** is loaded from:
 - `C:\Users\armin\TFS\Source\.armin\rag\user-65778-reports-index.md` (compact index)
 - `C:\Users\armin\TFS\Source\.armin\rag\user-65778-reports.md` (full catalog)
 
-Custom model **ERP Reports 65778** (`erp-reports-65778`) wraps `composer-2.5` with that knowledge attached.
+Custom models **pc-armin/maya** (Ollama `pc-armin/maya:latest` / Gemma) and **pc-armin/qwen** (Ollama `qwen2.5:3b`) both have Knowledge attached in Open WebUI. RAG retrieval uses Open WebUI embeddings; chat completions go to Ollama.
 
 **How to ask in the UI**
 
 1. Open http://pc-armin:3080/
-2. Select model **ERP Reports 65778** (RAG is attached to this model only). Plain `composer-2.5` / `composer-2` / `auto` do **not** see the report catalog unless you attach knowledge `#ERP Reports User 65778` in the chat.
+2. Select **pc-armin/maya** or **pc-armin/qwen** (RAG attached). Plain `gemma4:e4b` / `qwen2.5:3b` / `composer-2.5` do **not** see the report catalog unless you attach `#ERP Reports User 65778` in the chat.
 3. Ask for a report by Persian title or English page name (e.g. `CustomerCreditIncreaseReport`)
 
 Re-import / refresh after the source RAG files change:
@@ -89,4 +90,4 @@ Hybrid search is enabled in Admin → Documents (BM25 + embeddings) so Persian t
 - Open WebUI has no official subdirectory base path. Serving it under `/maya/` returns HTML 200 then a client **404: Not Found** (SvelteKit `base` is empty). Use port `3080` at the URL root.
 - Image is pulled only from official GHCR (`ghcr.io/open-webui/open-webui`).
 - Windows local compose uses `restart: "no"`.
-- Chat answers still need a working `cursor-sdk-to-openai` provider (Pro / Cloud Agent plan). Knowledge search works even when the LLM call is blocked.
+- Chat answers on **pc-armin/maya** use host Ollama. Cursor models still need a working `cursor-sdk-to-openai` provider (Pro / Cloud Agent plan). Knowledge search works even when an LLM call is blocked.

@@ -1,6 +1,6 @@
 # Sync TFS RAG report catalogs into Maya (Open WebUI) Knowledge.
 # Source: C:\Users\armin\TFS\Source\.armin\rag\user-65778-reports*.md
-# Target: Knowledge "ERP Reports User 65778" + model erp-reports-65778
+# Target: Knowledge "ERP Reports User 65778" + Ollama-backed model pc-armin/maya
 
 param(
   [string]$WebUiUrl = "http://127.0.0.1:3080",
@@ -8,7 +8,8 @@ param(
   [string]$Password = "dopadopa123",
   [string]$RagDir = "C:\Users\armin\TFS\Source\.armin\rag",
   [string]$KnowledgeName = "ERP Reports User 65778",
-  [string]$ModelId = "erp-reports-65778"
+  [string]$ModelId = "pc-armin/maya",
+  [string]$BaseModelId = "pc-armin/maya:latest"
 )
 
 $ErrorActionPreference = "Stop"
@@ -136,8 +137,8 @@ Invoke-RestMethod -Uri "$WebUiUrl/api/v1/knowledge/$kbId/update" -Method POST `
     data = @{ file_ids = $linkedFileIds }
   } | ConvertTo-Json -Depth 5) | Out-Null
 
-$verify = Invoke-RestMethod -Uri "$WebUiUrl/api/v1/knowledge/$kbId" -Headers $auth
-$fileCount = @($verify.files).Count
+$verifyFiles = Invoke-RestMethod -Uri "$WebUiUrl/api/v1/knowledge/$kbId/files" -Headers $auth
+$fileCount = @($verifyFiles.items).Count
 Write-Host "Knowledge files after update: $fileCount"
 if ($fileCount -lt 1) {
   throw "Knowledge has no files after sync"
@@ -145,13 +146,16 @@ if ($fileCount -lt 1) {
 
 $modelBody = @{
   id = $ModelId
-  name = "ERP Reports 65778"
-  base_model_id = "composer-2.5"
+  name = "pc-armin/maya"
+  base_model_id = $BaseModelId
   meta = @{
-    description = "RAG model for ERP reports (ccUser 65778). Knowledge: $KnowledgeName"
+    description = "Ollama ($BaseModelId) + RAG for ERP reports (ccUser 65778). Knowledge: $KnowledgeName"
     knowledge = @(@{ id = $kbId; name = $KnowledgeName; type = "collection" })
   }
   params = @{
+    # Open WebUI native FC exposes knowledge as tools (+ calendar). Gemma often
+    # skips query_knowledge_files and claims "no access". Legacy injects RAG.
+    function_calling = "legacy"
     system = @"
 You are Maya's ERP report finder for user 65778 (mkarimi).
 Always use the attached knowledge collection first.
@@ -164,24 +168,59 @@ Answer in the user's language. Do not invent pages that are not in the knowledge
 try {
   Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/model/update" -Method POST `
     -Headers $auth -ContentType "application/json" -Body $modelBody | Out-Null
-  Write-Host "Updated model $ModelId"
+  Write-Host "Updated model $ModelId (base=$BaseModelId)"
 } catch {
   Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/create" -Method POST `
     -Headers $auth -ContentType "application/json" -Body $modelBody | Out-Null
-  Write-Host "Created model $ModelId"
+  Write-Host "Created model $ModelId (base=$BaseModelId)"
 }
 
-# Make the RAG model the default so new chats attach knowledge automatically.
+# Also keep Qwen2.5 preset on the same knowledge collection.
+$qwenModelId = "pc-armin/qwen"
+$qwenBase = "qwen2.5:3b"
+$qwenBody = @{
+  id = $qwenModelId
+  name = "pc-armin/qwen"
+  base_model_id = $qwenBase
+  meta = @{
+    description = "Ollama ($qwenBase) + RAG for ERP reports (ccUser 65778). Knowledge: $KnowledgeName"
+    knowledge = @(@{ id = $kbId; name = $KnowledgeName; type = "collection" })
+  }
+  params = @{
+    function_calling = "legacy"
+    system = @"
+You are Maya's ERP report finder for user 65778 (mkarimi).
+Always use the attached knowledge collection first.
+For each match return: 1) Persian title 2) Menu path 3) Local link 4) Production link if present.
+Answer in the user's language. Do not invent pages that are not in the knowledge.
+"@
+  }
+} | ConvertTo-Json -Depth 8
+try {
+  Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/model/update" -Method POST `
+    -Headers $auth -ContentType "application/json" -Body $qwenBody | Out-Null
+  Write-Host "Updated model $qwenModelId (base=$qwenBase)"
+} catch {
+  try {
+    Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/create" -Method POST `
+      -Headers $auth -ContentType "application/json" -Body $qwenBody | Out-Null
+    Write-Host "Created model $qwenModelId (base=$qwenBase)"
+  } catch {
+    Write-Warning "Could not upsert $qwenModelId (is $qwenBase pulled in Ollama?): $($_.Exception.Message)"
+  }
+}
+
+# Make the RAG+Ollama model the default so new chats attach knowledge automatically.
 Invoke-RestMethod -Uri "$WebUiUrl/api/v1/configs/models" -Method POST `
   -Headers $auth -ContentType "application/json" `
   -Body (@{
     DEFAULT_MODELS = $ModelId
     DEFAULT_PINNED_MODELS = $null
-    MODEL_ORDER_LIST = @($ModelId, "composer-2.5")
+    MODEL_ORDER_LIST = @($ModelId, $qwenModelId, $BaseModelId, $qwenBase, "composer-2.5")
     DEFAULT_MODEL_METADATA = @{}
     DEFAULT_MODEL_PARAMS = @{}
   } | ConvertTo-Json -Depth 5) | Out-Null
 Write-Host "Default model set to $ModelId"
 
-Write-Host "Done. In Maya select model 'ERP Reports 65778' or attach knowledge '#$KnowledgeName'."
-Write-Host "Default model is now $ModelId (RAG). Plain composer-2.5 has no report catalog unless you attach #knowledge."
+Write-Host "Done. In Maya select 'pc-armin/maya' (Gemma) or 'pc-armin/qwen' (Qwen2.5) + RAG, or attach '#$KnowledgeName'."
+Write-Host "Default model is now $ModelId. Plain gemma4:e4b / qwen2.5:3b / composer-2.5 have no report catalog unless you attach #knowledge."

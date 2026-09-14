@@ -24,7 +24,7 @@ services:
       WEBUI_ADMIN_EMAIL: ${WEBUI_ADMIN_EMAIL:-armin@local}
       WEBUI_ADMIN_NAME: ${WEBUI_ADMIN_NAME:-armin}
       WEBUI_ADMIN_PASSWORD: ${WEBUI_ADMIN_PASSWORD:-dopadopa123}
-      DEFAULT_MODELS: ${DEFAULT_MODELS:-composer-2.5}
+      DEFAULT_MODELS: ${DEFAULT_MODELS:-pc-armin/maya}
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-change-me-maya-local}
     networks:
       - default

@@ -52,24 +52,24 @@ Host-only clients (outside Docker) use `http://127.0.0.1:8140/v1` or published `
 ### Load / switch models in the UI
 
 1. Open http://pc-armin:3080/ and sign in (`armin` / `dopadopa123`)
-2. Open the model picker (top of chat)
-3. Pick **pc-armin/maya** (default: host Ollama `pc-armin/maya:latest` / Gemma + ERP RAG) or **pc-armin/qwen** (Ollama `qwen2.5:3b` + same ERP RAG). Also available: raw `gemma4:e4b` / `pc-armin/maya:latest` / `qwen2.5:3b`, and Cursor models via `cursor-sdk-to-openai` when that stack is up
-4. Admin → Settings → Connections: Ollama URL must stay `http://host.docker.internal:11434`; OpenAI connection URL stays `http://cursor-sdk-to-openai-api-1:8140/v1` when used
-
-## RAG (ERP reports for user 65778)
-
-Open WebUI Knowledge collection **ERP Reports User 65778** is loaded from:
-
-- `C:\Users\armin\TFS\Source\.armin\rag\user-65778-reports-index.md` (compact index)
-- `C:\Users\armin\TFS\Source\.armin\rag\user-65778-reports.md` (full catalog)
-
-Custom models **pc-armin/maya** (Ollama `pc-armin/maya:latest` / Gemma) and **pc-armin/qwen** (Ollama `qwen2.5:3b`) both have Knowledge attached in Open WebUI. RAG retrieval uses Open WebUI embeddings; chat completions go to Ollama.
-
-**How to ask in the UI**
-
-1. Open http://pc-armin:3080/
-2. Select **pc-armin/maya** or **pc-armin/qwen** (RAG attached). Plain `gemma4:e4b` / `qwen2.5:3b` / `composer-2.5` do **not** see the report catalog unless you attach `#ERP Reports User 65778` in the chat.
-3. Ask for a report by Persian title or English page name (e.g. `CustomerCreditIncreaseReport`)
+  2. Open the model picker (top of chat)
+  3. Pick **Cursor-API-Composer** (only chat model exposed; Ollama base `pc-armin/maya:latest` + ERP RAG). Cursor / other Ollama models are disabled in the picker by sync.
+  4. Admin → Settings → Connections: Ollama URL must stay `http://host.docker.internal:11434`; OpenAI connection stays present but **disabled** so Cursor models do not appear in chat
+  
+  ## RAG (ERP reports for user 65778)
+  
+  Open WebUI Knowledge collection **ERP Reports User 65778** is loaded from:
+  
+  - `C:\Users\armin\TFS\Source\.armin\rag\user-65778-reports-index.md` (compact index)
+  - `C:\Users\armin\TFS\Source\.armin\rag\user-65778-reports.md` (full catalog)
+  
+  Workspace model **Cursor-API-Composer** (`erp-reports-65778`) wraps Ollama `pc-armin/maya:latest` with that Knowledge. RAG retrieval uses Open WebUI embeddings; chat completions go to Ollama. Sync keeps the Ollama base **active but hidden** (Open WebUI 0.11+ requires the base id in `MODELS` or chat returns `Model not found`) and deactivates other sibling models.
+  
+  **How to ask in the UI**
+  
+  1. Open http://pc-armin:3080/
+  2. Model = **Cursor-API-Composer** (default; RAG attached)
+  3. Ask for a report by Persian title or English page name (e.g. `CustomerCreditIncreaseReport`)
 
 Re-import / refresh after the source RAG files change:
 
@@ -90,4 +90,5 @@ Hybrid search is enabled in Admin → Documents (BM25 + embeddings) so Persian t
 - Open WebUI has no official subdirectory base path. Serving it under `/maya/` returns HTML 200 then a client **404: Not Found** (SvelteKit `base` is empty). Use port `3080` at the URL root.
 - Image is pulled only from official GHCR (`ghcr.io/open-webui/open-webui`).
 - Windows local compose uses `restart: "no"`.
-- Chat answers on **pc-armin/maya** use host Ollama. Cursor models still need a working `cursor-sdk-to-openai` provider (Pro / Cloud Agent plan). Knowledge search works even when an LLM call is blocked.
+- Chat answers on **Cursor-API-Composer** use host Ollama (`pc-armin/maya:latest`). Cursor OpenAI connection is kept but disabled in the picker; re-enable in Admin → Connections if needed. Knowledge search works even when an LLM call is blocked.
+- Do **not** point the OpenAI connection at `http://localhost:8173` from inside the Maya container — that is the host publish port. Use Docker DNS `http://cursor-sdk-to-openai-api-1:8140/v1` (or `host.docker.internal:8173` only if you must hit the published port).

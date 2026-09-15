@@ -1,6 +1,6 @@
 # Sync TFS RAG report catalogs into Maya (Open WebUI) Knowledge.
 # Source: C:\Users\armin\TFS\Source\.armin\rag\user-65778-reports*.md
-# Target: Knowledge "ERP Reports User 65778" + Ollama-backed model pc-armin/maya
+# Target: Knowledge "ERP Reports User 65778" on Cursor-API-Composer + all cursor-sdk-to-openai models
 
 param(
   [string]$WebUiUrl = "http://127.0.0.1:3080",
@@ -8,7 +8,8 @@ param(
   [string]$Password = "dopadopa123",
   [string]$RagDir = "C:\Users\armin\TFS\Source\.armin\rag",
   [string]$KnowledgeName = "ERP Reports User 65778",
-  [string]$ModelId = "pc-armin/maya",
+  [string]$ModelId = "erp-reports-65778",
+  [string]$ModelName = "Cursor-API-Composer",
   [string]$BaseModelId = "pc-armin/maya:latest"
 )
 
@@ -144,25 +145,42 @@ if ($fileCount -lt 1) {
   throw "Knowledge has no files after sync"
 }
 
+# Non-admins need Knowledge read or RAG retrieval fails even when model has meta.knowledge.
+Invoke-RestMethod -Uri "$WebUiUrl/api/v1/knowledge/$kbId/access/update" -Method POST `
+  -Headers $auth -ContentType "application/json" `
+  -Body (@{
+    id = $kbId
+    access_grants = @(
+      @{ principal_type = "user"; principal_id = "*"; permission = "read" }
+    )
+  } | ConvertTo-Json -Depth 6) | Out-Null
+Write-Host "Knowledge public read granted: $KnowledgeName"
+
+$ragSystem = @"
+You are Maya's ERP report finder for user 65778 (mkarimi).
+Always use the attached knowledge collection first.
+For each match return: 1) Persian title 2) Menu path 3) Local link 4) Production link if present.
+Answer in the user's language. Do not invent pages that are not in the knowledge.
+"@
+
 $modelBody = @{
   id = $ModelId
-  name = "pc-armin/maya"
+  name = $ModelName
   base_model_id = $BaseModelId
   meta = @{
     description = "Ollama ($BaseModelId) + RAG for ERP reports (ccUser 65778). Knowledge: $KnowledgeName"
+    hidden = $false
     knowledge = @(@{ id = $kbId; name = $KnowledgeName; type = "collection" })
   }
   params = @{
     # Open WebUI native FC exposes knowledge as tools (+ calendar). Gemma often
     # skips query_knowledge_files and claims "no access". Legacy injects RAG.
     function_calling = "legacy"
-    system = @"
-You are Maya's ERP report finder for user 65778 (mkarimi).
-Always use the attached knowledge collection first.
-For each match return: 1) Persian title 2) Menu path 3) Local link 4) Production link if present.
-Answer in the user's language. Do not invent pages that are not in the knowledge.
-"@
+    system = $ragSystem
   }
+  access_grants = @(
+    @{ principal_type = "user"; principal_id = "*"; permission = "read" }
+  )
 } | ConvertTo-Json -Depth 8
 
 try {
@@ -175,52 +193,148 @@ try {
   Write-Host "Created model $ModelId (base=$BaseModelId)"
 }
 
-# Also keep Qwen2.5 preset on the same knowledge collection.
-$qwenModelId = "pc-armin/qwen"
-$qwenBase = "qwen2.5:3b"
-$qwenBody = @{
-  id = $qwenModelId
-  name = "pc-armin/qwen"
-  base_model_id = $qwenBase
-  meta = @{
-    description = "Ollama ($qwenBase) + RAG for ERP reports (ccUser 65778). Knowledge: $KnowledgeName"
-    knowledge = @(@{ id = $kbId; name = $KnowledgeName; type = "collection" })
-  }
-  params = @{
-    function_calling = "legacy"
-    system = @"
-You are Maya's ERP report finder for user 65778 (mkarimi).
-Always use the attached knowledge collection first.
-For each match return: 1) Persian title 2) Menu path 3) Local link 4) Production link if present.
-Answer in the user's language. Do not invent pages that are not in the knowledge.
-"@
-  }
-} | ConvertTo-Json -Depth 8
-try {
-  Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/model/update" -Method POST `
-    -Headers $auth -ContentType "application/json" -Body $qwenBody | Out-Null
-  Write-Host "Updated model $qwenModelId (base=$qwenBase)"
-} catch {
+# Keep cursor-sdk-to-openai reachable from the Maya container (Docker DNS, not localhost).
+# Public read on provider models is required so non-admin users do not get "Model not found".
+Invoke-RestMethod -Uri "$WebUiUrl/openai/config/update" -Method POST `
+  -Headers $auth -ContentType "application/json" `
+  -Body (@{
+    ENABLE_OPENAI_API = $true
+    OPENAI_API_BASE_URLS = @("http://cursor-sdk-to-openai-api-1:8140/v1")
+    OPENAI_API_KEYS = @("local")
+    OPENAI_API_CONFIGS = @{
+      "0" = @{
+        enable = $true
+        tags = @(@{ name = "cursor-sdk-to-openai" })
+        connection_type = "external"
+        auth_type = "bearer"
+        prefix_id = ""
+        model_ids = @()
+      }
+    }
+  } | ConvertTo-Json -Depth 6) | Out-Null
+
+Invoke-RestMethod -Uri "$WebUiUrl/ollama/config/update" -Method POST `
+  -Headers $auth -ContentType "application/json" `
+  -Body (@{
+    ENABLE_OLLAMA_API = $true
+    OLLAMA_BASE_URLS = @("http://host.docker.internal:11434")
+    OLLAMA_API_CONFIGS = @{
+      "0" = @{
+        enable = $true
+        model_ids = @($BaseModelId)
+      }
+    }
+  } | ConvertTo-Json -Depth 6) | Out-Null
+
+function Set-ModelPublicRead([string]$modelId, [bool]$hidden, [bool]$active) {
   try {
-    Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/create" -Method POST `
-      -Headers $auth -ContentType "application/json" -Body $qwenBody | Out-Null
-    Write-Host "Created model $qwenModelId (base=$qwenBase)"
+    $row = Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/model?id=$([uri]::EscapeDataString($modelId))" -Headers $auth
+    if (-not $row -or -not $row.id) { return }
+    $meta = @{}
+    if ($row.meta) { $row.meta.PSObject.Properties | ForEach-Object { $meta[$_.Name] = $_.Value } }
+    $meta["hidden"] = $hidden
+    $body = @{
+      id = $row.id
+      name = $row.name
+      base_model_id = $row.base_model_id
+      meta = $meta
+      params = $row.params
+      access_grants = @(
+        @{ principal_type = "user"; principal_id = "*"; permission = "read" }
+      )
+      is_active = $active
+    } | ConvertTo-Json -Depth 8
+    Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/model/update" -Method POST `
+      -Headers $auth -ContentType "application/json" -Body $body | Out-Null
+    Write-Host "Model $modelId active=$active hidden=$hidden public_read=true"
   } catch {
-    Write-Warning "Could not upsert $qwenModelId (is $qwenBase pulled in Ollama?): $($_.Exception.Message)"
+    Write-Host "Model row missing (ok if provider-only): $modelId"
   }
 }
 
-# Make the RAG+Ollama model the default so new chats attach knowledge automatically.
+function Set-ProviderModelWithRag([string]$modelId) {
+  try {
+    $row = $null
+    try {
+      $row = Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/model?id=$([uri]::EscapeDataString($modelId))" -Headers $auth
+    } catch { }
+
+    $meta = @{}
+    if ($row -and $row.meta) {
+      $row.meta.PSObject.Properties | ForEach-Object { $meta[$_.Name] = $_.Value }
+    }
+    $meta["hidden"] = $false
+    $meta["knowledge"] = @(@{ id = $kbId; name = $KnowledgeName; type = "collection" })
+    $meta["description"] = "cursor-sdk-to-openai ($modelId) + RAG ($KnowledgeName)"
+
+    $params = @{}
+    if ($row -and $row.params) {
+      $row.params.PSObject.Properties | ForEach-Object { $params[$_.Name] = $_.Value }
+    }
+    $params["function_calling"] = "legacy"
+    $params["system"] = $ragSystem
+
+    $body = @{
+      id = $modelId
+      name = $(if ($row -and $row.name) { $row.name } else { $modelId })
+      base_model_id = $null
+      meta = $meta
+      params = $params
+      access_grants = @(
+        @{ principal_type = "user"; principal_id = "*"; permission = "read" }
+      )
+      is_active = $true
+    } | ConvertTo-Json -Depth 10
+
+    if ($row -and $row.id) {
+      Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/model/update" -Method POST `
+        -Headers $auth -ContentType "application/json" -Body $body | Out-Null
+    } else {
+      try {
+        Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/create" -Method POST `
+          -Headers $auth -ContentType "application/json" -Body $body | Out-Null
+      } catch {
+        Invoke-RestMethod -Uri "$WebUiUrl/api/v1/models/model/update" -Method POST `
+          -Headers $auth -ContentType "application/json" -Body $body | Out-Null
+      }
+    }
+    Write-Host "Provider+RAG $modelId"
+  } catch {
+    Write-Warning "Provider+RAG failed for $modelId : $($_.Exception.Message)"
+  }
+}
+
+# Hide unused Ollama siblings; do NOT strip RAG from cursor-sdk-to-openai models.
+foreach ($otherId in @("pc-armin/maya", "pc-armin/qwen", "gemma4:e4b", "qwen2.5:3b")) {
+  Set-ModelPublicRead $otherId $true $false
+}
+
+# Open WebUI 0.11+: workspace model needs base id active + readable by the user.
+# Hide Ollama base from picker; keep public read so non-admins can use Cursor-API-Composer.
+Set-ModelPublicRead $BaseModelId $true $true
+
+# Attach TFS RAG Knowledge to every cursor-sdk-to-openai model (all users).
+try {
+  $listed = Invoke-RestMethod -Uri "$WebUiUrl/openai/models" -Headers $auth
+  $providerIds = @()
+  if ($listed.data) { $providerIds = @($listed.data | ForEach-Object { $_.id }) }
+  foreach ($pid in $providerIds) {
+    Set-ProviderModelWithRag $pid
+  }
+  Write-Host "cursor-sdk-to-openai models with RAG: $($providerIds.Count)"
+} catch {
+  Write-Warning "Could not list/attach RAG on cursor-sdk-to-openai models: $($_.Exception.Message)"
+}
+
 Invoke-RestMethod -Uri "$WebUiUrl/api/v1/configs/models" -Method POST `
   -Headers $auth -ContentType "application/json" `
   -Body (@{
     DEFAULT_MODELS = $ModelId
     DEFAULT_PINNED_MODELS = $null
-    MODEL_ORDER_LIST = @($ModelId, $qwenModelId, $BaseModelId, $qwenBase, "composer-2.5")
+    MODEL_ORDER_LIST = @($ModelId)
     DEFAULT_MODEL_METADATA = @{}
     DEFAULT_MODEL_PARAMS = @{}
   } | ConvertTo-Json -Depth 5) | Out-Null
-Write-Host "Default model set to $ModelId"
+Write-Host "Default model set to $ModelId ($ModelName)"
 
-Write-Host "Done. In Maya select 'pc-armin/maya' (Gemma) or 'pc-armin/qwen' (Qwen2.5) + RAG, or attach '#$KnowledgeName'."
-Write-Host "Default model is now $ModelId. Plain gemma4:e4b / qwen2.5:3b / composer-2.5 have no report catalog unless you attach #knowledge."
+Write-Host "Done. Default='$ModelName' + all cursor-sdk-to-openai models use RAG Knowledge '$KnowledgeName' (from $RagDir)."

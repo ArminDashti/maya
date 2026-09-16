@@ -1,21 +1,20 @@
 # Maya
 
-Local **Open WebUI** chatbot at [http://pc-armin:3080/](http://pc-armin:3080/), backed by [cursor-sdk-to-openai](https://github.com/ArminDashti/cursor-sdk-to-openai).
+Local **Open WebUI** chatbot branded **Maya**, at [http://maya.local/](http://maya.local/), with dual Ollama + OpenAI-compatible Cursor models and shared ERP RAG.
 
 | Piece | Source |
 |-------|--------|
 | UI | Official image `ghcr.io/open-webui/open-webui` ([docs](https://docs.openwebui.com/getting-started/quick-start/), [repo](https://github.com/open-webui/open-webui)) |
-| LLM providers | Host **Ollama** (`OLLAMA_BASE_URL` → `host.docker.internal:11434`) + OpenAI-compatible `cursor-sdk-to-openai` |
-| Entry | Published port `3080` (Open WebUI must run at URL root — no subdirectory base path) |
-| Gateway bookmark | [nginx-local](https://github.com/ArminDashti/nginx-local) `/maya/` → 302 to `:3080/` |
+| LLM providers | Local Ollama (`host.docker.internal:11434`) + server Ollama (`10.10.16.118:11434`) + OpenAI-compatible `cursor-sdk-to-openai` |
+| Entry | Port `3080` at URL root; [nginx-local](https://github.com/ArminDashti/nginx-local) hosts `maya.local` and redirects `/maya` → `:3080/` |
 
 ## Prerequisites
 
 1. Docker Desktop running
-2. Host **Ollama** listening on `11434` with model `pc-armin/maya` (`ollama create pc-armin/maya -f Modelfile` FROM `gemma4:e4b`)
-3. External network `pc-armin-local` (created by nginx-local / other pc-armin stacks)
-4. Optional: `cursor-sdk-to-openai` stack up on network `pc-armin-local` for Cursor models
-5. Optional: `nginx-gateway` up so `http://pc-armin/maya/` redirects to the UI
+2. Host Ollama with `gemma4:e4b` and `qwen2.5:3b` (also on `10.10.16.118`)
+3. External network `pc-armin-local`
+4. `cursor-sdk-to-openai` stack up on `pc-armin-local` (Gemini 3.8)
+5. Optional: `nginx-gateway` for `http://maya.local/` and `/maya` redirects
 
 ## Quick start
 
@@ -23,72 +22,78 @@ Local **Open WebUI** chatbot at [http://pc-armin:3080/](http://pc-armin:3080/), 
 cd C:\Users\armin\GitHub\maya
 copy .env.example .env
 # Set OPENAI_API_KEY from cursor-sdk-to-openai-api AUTH_KEY if set; else leave "local"
-# Default base URL uses Docker DNS: http://cursor-sdk-to-openai-api-1:8140/v1
 
-.\.armin\deploy\local-docker\install.ps1
+.\scripts\install-local-docker.ps1
+.\.armin\rag\sync-maya.ps1
 ```
 
-UI: http://pc-armin:3080/ (or http://127.0.0.1:3080/)  
-Bookmark helper: http://pc-armin/maya/ → redirects to the UI
+| URL | Notes |
+|-----|--------|
+| http://maya.local/ | Preferred local hostname (nginx) |
+| http://127.0.0.1:3080/ | Direct publish port |
+| http://pc-armin/maya | 302 → `:3080/` |
+| http://10.20.9.59/maya | 302 → `:3080/` |
 
-Admin (first boot seed): `armin` / `dopadopa123` (email `armin@local`).
+Stack: `maya` · container: `maya-openwebui` · update keeps volumes/DB.
 
-## OpenAI-compatible provider (`cursor-sdk-to-openai`)
+Shared password for seeded users + bootstrap admin: `123456`.
 
-Maya connects the same way Open WebUI documents under **Connect a Provider** → OpenAI-compatible: URL + API key in **Settings → Admin → Connections**. There is no custom Cursor client in this app.
+## Models (all users)
 
-```text
-baseURL = http://cursor-sdk-to-openai-api-1:8140/v1   # Maya container → API container on pc-armin-local
-apiKey  = local                                       # or AUTH_KEY from cursor-sdk-to-openai-api/.env
-tag     = cursor-sdk-to-openai                        # OPENAI_API_CONFIGS connection label
-```
+| Picker name | Backend |
+|-------------|---------|
+| Cursor-Gemini-3.8 | `cursor-sdk-to-openai` → `gemini-3.8-flash` |
+| Local-Armin-Gemma-4-e4b | local Ollama `gemma4:e4b` |
+| Local-Armin-Qwen-2.5-2B | local Ollama `qwen2.5:3b` (installed tag; no 2b on hosts) |
+| Server-Gemma-4-e4b | server Ollama `gemma4:e4b` @ 10.10.16.118 |
+| Server-Qwen-2.5-2b | server Ollama `qwen2.5:3b` @ 10.10.16.118 |
 
-Env mapping: `ENABLE_OPENAI_API=true`, `OPENAI_API_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_API_CONFIGS`. Routes used: `GET /v1/models`, `POST /v1/chat/completions`. Keep the `/v1` suffix.
+All five share Knowledge **ERP Reports** from `C:\Users\armin\TFS\rag-for-ai\reports\` (`reports-index.md`, `reports.md`) plus Skills: Find ERP Report, Report Index First, Persian Title Match.
 
-Chat needs a Cursor API key with agent access (Pro or higher). Free-tier keys return `plan_required` from `@cursor/sdk`. Set `RAMIN_2_CURSOR_API` (or `CURSOR_API_KEY`) in `cursor-sdk-to-openai-api/.env`, then recreate the API container.
-
-Host-only clients (outside Docker) use `http://127.0.0.1:8140/v1` or published `http://127.0.0.1:8173/v1` depending on how the API is started.
-
-### Load / switch models in the UI
-
-1. Open http://pc-armin:3080/ and sign in (`armin` / `dopadopa123`)
-  2. Open the model picker (top of chat)
-  3. Pick **Cursor-API-Composer** (only chat model exposed; Ollama base `pc-armin/maya:latest` + ERP RAG). Cursor / other Ollama models are disabled in the picker by sync.
-  4. Admin → Settings → Connections: Ollama URL must stay `http://host.docker.internal:11434`; OpenAI connection stays present but **disabled** so Cursor models do not appear in chat
-  
-  ## RAG (ERP reports for user 65778)
-  
-  Open WebUI Knowledge collection **ERP Reports User 65778** is loaded from:
-  
-  - `C:\Users\armin\TFS\Source\.armin\rag\user-65778-reports-index.md` (compact index)
-  - `C:\Users\armin\TFS\Source\.armin\rag\user-65778-reports.md` (full catalog)
-  
-  Workspace model **Cursor-API-Composer** (`erp-reports-65778`) wraps Ollama `pc-armin/maya:latest` with that Knowledge. RAG retrieval uses Open WebUI embeddings; chat completions go to Ollama. Sync keeps the Ollama base **active but hidden** (Open WebUI 0.11+ requires the base id in `MODELS` or chat returns `Model not found`) and deactivates other sibling models.
-  
-  **How to ask in the UI**
-  
-  1. Open http://pc-armin:3080/
-  2. Model = **Cursor-API-Composer** (default; RAG attached)
-  3. Ask for a report by Persian title or English page name (e.g. `CustomerCreditIncreaseReport`)
-
-Re-import / refresh after the source RAG files change:
+Re-sync after RAG or user changes:
 
 ```powershell
-.\.armin\rag\sync-user-65778-reports.ps1
+.\.armin\rag\sync-maya.ps1
 ```
 
-Hybrid search is enabled in Admin → Documents (BM25 + embeddings) so Persian titles match more reliably.
+## OpenAI-compatible provider
+
+Maya needs `/v1/chat/completions`. Use **cursor-sdk-to-openai**, not `cursor-headless-cli-to-api.local` (that service is a custom `/api/v1/runs` bridge).
+
+```text
+baseURL = http://cursor-sdk-to-openai-api-1:8140/v1
+apiKey  = local   # or AUTH_KEY
+```
+
+Host clients: `http://127.0.0.1:8173/v1`.
+
+## Seeded users
+
+| Name | Email | Role |
+|------|-------|------|
+| Shima Seifollahi | s.seifollahi@ondpline.com | user |
+| Armin Dashti | a.dashti@ondpline.com | admin |
+| Mozaffar Sabzevari | m.sabzevari@ondpline.com | user |
+| Amin Bazri | a.bazri@ondpline.com | user |
+| Ali Barati | a.barati@ondpline.com | user |
+| MJ Amiri | m.amiri@ondpline.com | user |
+
+Password for all (and bootstrap `armin@local`): `123456`.
 
 ## Remove
 
 ```powershell
-.\.armin\deploy\local-docker\remove.ps1
+.\scripts\remove-local-docker.ps1
+```
+
+Full wipe:
+
+```powershell
+.\scripts\reinstall-local-docker.ps1
 ```
 
 ## Notes
 
-- Open WebUI has no official subdirectory base path. Serving it under `/maya/` returns HTML 200 then a client **404: Not Found** (SvelteKit `base` is empty). Use port `3080` at the URL root.
-- Image is pulled only from official GHCR (`ghcr.io/open-webui/open-webui`).
-- Windows local compose uses `restart: "no"`.
-- Chat answers on **Cursor-API-Composer** use host Ollama (`pc-armin/maya:latest`). Cursor OpenAI connection is kept but disabled in the picker; re-enable in Admin → Connections if needed. Knowledge search works even when an LLM call is blocked.
-- Do **not** point the OpenAI connection at `http://localhost:8173` from inside the Maya container — that is the host publish port. Use Docker DNS `http://cursor-sdk-to-openai-api-1:8140/v1` (or `host.docker.internal:8173` only if you must hit the published port).
+- Open WebUI has no subdirectory base path; `/maya` must redirect to `:3080/`.
+- Branding env `WEBUI_NAME=Maya` becomes **Maya (Open WebUI)** under the project license.
+- Docker DNS name `ollama` on `pc-armin-local` may be an empty volume; Maya uses `host.docker.internal:11434` for local models.

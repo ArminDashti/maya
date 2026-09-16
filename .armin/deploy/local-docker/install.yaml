@@ -1,4 +1,4 @@
-stack_name: maya-local
+stack_name: maya
 image_tag: ghcr.io/open-webui/open-webui:v0.11.3
 compose_file: ../../../docker-compose.yml
 dockerfile: ""
@@ -9,3 +9,8 @@ delete_volume: "no"
 delete_image: "no"
 build_image_on: local
 volume_dir: ""
+container_name: maya-openwebui
+legacy_stack_name: maya-local
+legacy_container_name: maya-open-webui
+legacy_volume_name: maya-local_maya-open-webui-data
+volume_name: maya-openwebui-data

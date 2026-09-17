@@ -482,7 +482,7 @@ try {
 }
 
 Write-Host "Done. Models + RAG + skills + users ready."
-Write-Host "  UI: http://maya.local/  |  http://127.0.0.1:3080/"
-Write-Host "  Path bookmarks redirect: http://pc-armin/maya  http://10.20.9.59/maya"
+Write-Host "  UI: http://maya.local/"
+Write-Host "  Path bookmarks: http://pc-armin/maya  http://10.20.9.59/maya  (302 -> http://maya.local/)"
 Write-Host "  Note: Qwen display names say 2B; installed Ollama tag is qwen2.5:3b on both hosts."
 Write-Host "  Note: Cursor-Gemini uses cursor-sdk-to-openai (OpenAI-compat). Headless CLI API is not /v1 chat."

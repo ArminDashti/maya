@@ -97,5 +97,5 @@ try {
 
 Write-Host "Done. container=$containerName"
 Write-Host "  local:  http://maya.local/"
-Write-Host "  direct: http://pc-armin:$($env:PUBLISH_PORT)/"
-Write-Host "  LAN:    http://pc-armin/maya  or  http://10.20.9.59/maya  (redirects to :$($env:PUBLISH_PORT)/)"
+Write-Host "  path:   http://pc-armin/maya  or  http://10.20.9.59/maya  (302 -> http://maya.local/)"
+Write-Host "  direct: http://127.0.0.1:$($env:PUBLISH_PORT)/  (debug only; prefer maya.local)"

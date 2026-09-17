@@ -6,7 +6,7 @@ Local **Open WebUI** chatbot branded **Maya**, at [http://maya.local/](http://ma
 |-------|--------|
 | UI | Official image `ghcr.io/open-webui/open-webui` ([docs](https://docs.openwebui.com/getting-started/quick-start/), [repo](https://github.com/open-webui/open-webui)) |
 | LLM providers | Local Ollama (`host.docker.internal:11434`) + server Ollama (`10.10.16.118:11434`) + OpenAI-compatible `cursor-sdk-to-openai` |
-| Entry | Port `3080` at URL root; [nginx-local](https://github.com/ArminDashti/nginx-local) hosts `maya.local` and redirects `/maya` → `:3080/` |
+| Entry | [nginx-local](https://github.com/ArminDashti/nginx-local) serves `http://maya.local/` on port 80; `/maya` bookmarks 302 → `maya.local` (never `:3080`) |
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ Local **Open WebUI** chatbot branded **Maya**, at [http://maya.local/](http://ma
 2. Host Ollama with `gemma4:e4b` and `qwen2.5:3b` (also on `10.10.16.118`)
 3. External network `pc-armin-local`
 4. `cursor-sdk-to-openai` stack up on `pc-armin-local` (Gemini 3.8)
-5. Optional: `nginx-gateway` for `http://maya.local/` and `/maya` redirects
+5. `nginx-gateway` (restart unless-stopped) for `http://maya.local/` and `/maya` → `maya.local`
 
 ## Quick start
 
@@ -29,10 +29,10 @@ copy .env.example .env
 
 | URL | Notes |
 |-----|--------|
-| http://maya.local/ | Preferred local hostname (nginx) |
-| http://127.0.0.1:3080/ | Direct publish port |
-| http://pc-armin/maya | 302 → `:3080/` |
-| http://10.20.9.59/maya | 302 → `:3080/` |
+| http://maya.local/ | Canonical URL (nginx :80 → container) |
+| http://pc-armin/maya | Bookmark; 302 → `http://maya.local/` |
+| http://10.20.9.59/maya | Bookmark; 302 → `http://maya.local/` |
+| http://127.0.0.1:3080/ | Direct publish port (debug only) |
 
 Stack: `maya` · container: `maya-openwebui` · update keeps volumes/DB.
 
@@ -94,6 +94,7 @@ Full wipe:
 
 ## Notes
 
-- Open WebUI has no subdirectory base path; `/maya` must redirect to `:3080/`.
+- Open WebUI has no subdirectory base path; `/maya` redirects to `http://maya.local/` (port 80), not `:3080`.
+- Compose uses `restart: unless-stopped` so Maya starts with Docker.
 - Branding env `WEBUI_NAME=Maya` becomes **Maya (Open WebUI)** under the project license.
 - Docker DNS name `ollama` on `pc-armin-local` may be an empty volume; Maya uses `host.docker.internal:11434` for local models.

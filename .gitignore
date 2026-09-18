@@ -14,3 +14,11 @@ data/
 # === auto: large files (>5MB) ===
 
 # === commit-push-to-github large files (auto) ===
+
+# commit-push-to-github: large files (>5MB) auto-ignored
+backend/open_webui/static/fonts/NotoSansJP-Regular.ttf
+backend/open_webui/static/fonts/NotoSansJP-Variable.ttf
+backend/open_webui/static/fonts/NotoSansKR-Regular.ttf
+backend/open_webui/static/fonts/NotoSansKR-Variable.ttf
+backend/open_webui/static/fonts/NotoSansSC-Regular.ttf
+backend/open_webui/static/fonts/NotoSansSC-Variable.ttf

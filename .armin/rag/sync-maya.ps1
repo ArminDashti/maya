@@ -12,6 +12,11 @@ param(
   [string]$KnowledgeName = "ERP Reports",
   [string]$OpenAiBaseUrl = "http://cursor-sdk-to-openai-api-1:8140/v1",
   [string]$OpenAiKey = "local",
+  # Maya container → openrouter-api on pc-armin-local
+  [string]$OpenRouterBaseUrl = "http://openrouter-api:8080/v1",
+  # Sync host → nginx hostname (for listing free display ids)
+  [string]$OpenRouterHostUrl = "http://openrouter-to-openai-compatible-api.local/v1",
+  [string]$OpenRouterKey = "local",
   [string]$OllamaLocalUrl = "http://host.docker.internal:11434",
   [string]$OllamaServerUrl = "http://10.10.16.118:11434"
 )
@@ -36,7 +41,7 @@ Answer in the user's language. Do not invent pages that are not in the knowledge
 
 # Display name -> workspace id -> base model id (after Ollama prefix / OpenAI id)
 $models = @(
-  @{ Id = "cursor-gemini-3.8"; Name = "Cursor-Gemini-3.8"; Base = "gemini-3.8-flash"; Kind = "openai" },
+  @{ Id = "cursor-headless-cli-auto"; Name = "Cursor-Headless-CLI-Auto"; Base = "auto"; Kind = "openai" },
   @{ Id = "local-armin-gemma-4-e4b"; Name = "Local-Armin-Gemma-4-e4b"; Base = "local.gemma4:e4b"; Kind = "ollama" },
   @{ Id = "local-armin-qwen-2.5-2b"; Name = "Local-Armin-Qwen-2.5-2B"; Base = "local.qwen2.5:3b"; Kind = "ollama" },
   @{ Id = "server-gemma-4-e4b"; Name = "Server-Gemma-4-e4b"; Base = "server.gemma4:e4b"; Kind = "ollama" },
@@ -122,8 +127,8 @@ $auth = @{ Authorization = "Bearer $token"; Accept = "application/json" }
 # --- providers ---
 Invoke-Json POST "$WebUiUrl/openai/config/update" $auth @{
   ENABLE_OPENAI_API = $true
-  OPENAI_API_BASE_URLS = @($OpenAiBaseUrl)
-  OPENAI_API_KEYS = @($OpenAiKey)
+  OPENAI_API_BASE_URLS = @($OpenAiBaseUrl, $OpenRouterBaseUrl)
+  OPENAI_API_KEYS = @($OpenAiKey, $OpenRouterKey)
   OPENAI_API_CONFIGS = @{
     "0" = @{
       enable = $true
@@ -131,12 +136,21 @@ Invoke-Json POST "$WebUiUrl/openai/config/update" $auth @{
       connection_type = "external"
       auth_type = "bearer"
       prefix_id = ""
-      # Only expose Gemini 3.8 for the Cursor-Gemini workspace model
-      model_ids = @("gemini-3.8-flash")
+      # Only expose Auto for the Cursor-Headless-CLI-Auto workspace model
+      model_ids = @("auto")
+    }
+    "1" = @{
+      enable = $true
+      tags = @(@{ name = "openrouter-free" })
+      connection_type = "external"
+      auth_type = "bearer"
+      prefix_id = ""
+      # Proxy already filters to OpenRouter-*-Free ids; empty = all from that connection
+      model_ids = @()
     }
   }
 } | Out-Null
-Write-Host "OpenAI -> $OpenAiBaseUrl (gemini-3.8-flash)"
+Write-Host "OpenAI -> $OpenAiBaseUrl (auto) + $OpenRouterBaseUrl (free only)"
 
 Invoke-Json POST "$WebUiUrl/ollama/config/update" $auth @{
   ENABLE_OLLAMA_API = $true
@@ -309,6 +323,30 @@ foreach ($sk in $skills) {
 }
 
 # --- models ---
+# Append OpenRouter free display models (same RAG as Cursor-Headless-CLI-Auto)
+try {
+  $orList = Invoke-RestMethod -Uri "$OpenRouterHostUrl/models" -Headers @{
+    Authorization = "Bearer $OpenRouterKey"
+    Accept = "application/json"
+  }
+  $orRows = @()
+  foreach ($row in @($orList.data)) {
+    $disp = [string]$row.id
+    if ([string]::IsNullOrWhiteSpace($disp)) { continue }
+    if ($disp -notlike "OpenRouter-*-Free") { continue }
+    $slug = ($disp.ToLower() -replace "[^a-z0-9]+", "-").Trim("-")
+    $orRows += @{ Id = $slug; Name = $disp; Base = $disp; Kind = "openai-openrouter" }
+  }
+  if ($orRows.Count -gt 0) {
+    $models = @($models) + $orRows
+    Write-Host "OpenRouter free models + RAG: $($orRows.Count)"
+  } else {
+    Write-Warning "OpenRouter /models returned no OpenRouter-*-Free ids (rebuild proxy?)"
+  }
+} catch {
+  Write-Warning "OpenRouter models fetch failed ($OpenRouterHostUrl): $($_.Exception.Message)"
+}
+
 function Upsert-WorkspaceModel($m) {
   $meta = @{
     description = "$($m.Name) + shared RAG ($KnowledgeName). Base=$($m.Base)"
@@ -409,7 +447,7 @@ foreach ($otherId in @(
   Set-BaseModelVisible $otherId $true $false
 }
 
-# Hide every other stored model not in the public five (keep required bases active)
+# Hide every other stored model not in the public Maya set (keep required bases active)
 $keepIds = @($models | ForEach-Object { $_.Id })
 $requiredBases = @($models | ForEach-Object { $_.Base })
 try {
@@ -485,4 +523,5 @@ Write-Host "Done. Models + RAG + skills + users ready."
 Write-Host "  UI: http://maya.local/"
 Write-Host "  Path bookmarks: http://pc-armin/maya  http://10.20.9.59/maya  (302 -> http://maya.local/)"
 Write-Host "  Note: Qwen display names say 2B; installed Ollama tag is qwen2.5:3b on both hosts."
-Write-Host "  Note: Cursor-Gemini uses cursor-sdk-to-openai (OpenAI-compat). Headless CLI API is not /v1 chat."
+Write-Host "  Note: Cursor-Headless-CLI-Auto uses cursor-sdk-to-openai -> auto (OpenAI-compat). Headless CLI API is not /v1 chat."
+Write-Host "  Note: OpenRouter free models via openrouter-api:8080 (OpenRouter-*-Free + Auto-Free) share ERP RAG."

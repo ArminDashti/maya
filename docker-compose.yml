@@ -27,7 +27,7 @@ services:
       WEBUI_ADMIN_EMAIL: ${WEBUI_ADMIN_EMAIL:-armin@local}
       WEBUI_ADMIN_NAME: ${WEBUI_ADMIN_NAME:-armin}
       WEBUI_ADMIN_PASSWORD: ${WEBUI_ADMIN_PASSWORD:-123456}
-      DEFAULT_MODELS: ${DEFAULT_MODELS:-cursor-gemini-3.8}
+      DEFAULT_MODELS: ${DEFAULT_MODELS:-cursor-headless-cli-auto}
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-change-me-maya-local}
     networks:
       - default

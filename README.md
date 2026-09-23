@@ -59,6 +59,53 @@ Re-sync after RAG or user changes:
 .\.armin\rag\sync-maya.ps1
 ```
 
+Performance defaults (low-resource server; tuned 2026-09-23):
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| Default + pinned model | **Server-Gemma-4-e4b** | Preferred chat model; only the main answer runs on the server |
+| Task model (`TASK_MODEL`, `TASK_MODEL_EXTERNAL`) | **Local-Armin-Qwen-2.5-2B** | Titles/tags/follow-ups/search-query gen/tool decisions run on local Ollama, keeping ~90s of aux LLM calls off the server |
+| Retrieval | vector search in Qdrant first → related `.md` chunks, `TOP_K=5`, hybrid on, `RELEVANCE_THRESHOLD=0.4` | Score gap is 0.48+ relevant vs ≤0.27 irrelevant; junk queries return 0 chunks |
+| `num_ctx` (all four Ollama chat models) | **8192** | A RAG first turn is ~2.4–3.8k prompt tokens; the Ollama default 4096 overflows on turn two (server has ~25 GB RAM free) |
+
+## Vector database (Qdrant) + ERP report-access data
+
+Maya's retrieval does not run on the in-container Chroma DB any more: `VECTOR_DB=qdrant` points it at the Qdrant container, so both RAG retrieval and the ERP access search are real vector queries.
+
+| Piece | Detail |
+|-------|--------|
+| Vector DB | `qdrant/qdrant` container, host publish `:6333`, storage on `C:\Users\armin\qdrant_storage` |
+| Maya RAG collections | `maya_knowledge`, `maya_files` (`QDRANT_COLLECTION_PREFIX=maya`), 384-d cosine |
+| Embedding model | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` — the previous default `all-MiniLM-L6-v2` is English-only and ranks Persian queries badly |
+| ERP access collection | `erp_reports` — 3732 vectors from `rep_converted.deduped.json`, payload = `NameSystem`, `ParentSystemtxt`, `FullNamePersonel` |
+| Chat tool | **Qdrant ERP Report Access Search** (`.armin/rag/tools/qdrant_erp_search.py`) — semantic search over `erp_reports`, optional `person` filter |
+| RAG markdown | `.armin/rag/generated/reports-access/*.md` → knowledge **ERP Reports Access** |
+
+Rebuild all three pieces:
+
+```powershell
+# 1) vectors for the access dataset (runs inside maya-openwebui: reuses the cached embedding model)
+docker cp "C:/Users/armin/Desktop/rep_converted.deduped.json" maya-openwebui:/tmp/rep.json
+docker cp scripts/qdrant_ingest_erp_reports.py maya-openwebui:/tmp/qdrant_ingest.py
+docker exec maya-openwebui python /tmp/qdrant_ingest.py --json /tmp/rep.json --recreate
+
+# 2) RAG-ready markdown from the same dataset
+python scripts/generate_reports_access_md.py --json "C:/Users/armin/Desktop/rep_converted.deduped.json" --out ".armin/rag/generated/reports-access"
+
+# 3) knowledge collection + tool + attach both to every shared-RAG model
+python scripts\sync_maya_reports_access.py
+```
+
+Checks:
+
+```powershell
+curl.exe http://localhost:6333/collections                 # erp_reports, maya_knowledge, maya_files
+curl.exe http://localhost:6333/collections/erp_reports     # points_count = 3732
+```
+
+In chat, ask e.g. «چه کسانی به گزارش لیست دریافت و پرداخت دسترسی دارند؟» — the model answers from the Qdrant tool and from the **ERP Reports Access** knowledge.
+
+
 ## OpenAI-compatible provider
 
 Maya needs `/v1/chat/completions`. Use **cursor-sdk-to-openai**, not `cursor-headless-cli-to-api.local` (that service is a custom `/api/v1/runs` bridge).
@@ -101,3 +148,7 @@ Full wipe:
 - Compose uses `restart: unless-stopped` so Maya starts with Docker.
 - Branding env `WEBUI_NAME=Maya` becomes **Maya (Open WebUI)** under the project license.
 - Docker DNS name `ollama` on `pc-armin-local` may be an empty volume; Maya uses `host.docker.internal:11434` for local models.
+- Server Ollama `10.10.16.118:11434` is reachable from Maya (`/ollama/api/tags/1` lists `qwen2.5:3b`, `gemma4:e4b`, `deepseek-r1:14b`). `gemma4:e4b` loads fine there since the 2026-09-23 upgrade to Ollama 0.34.3 (the old broken-blob failure is gone); it is CPU-only (~10 tok/s generate, ~58 tok/s prefill).
+- Qdrant runs outside this compose project (container `pensive_wright`, `qdrant/qdrant`, storage `C:\Users\armin\qdrant_storage`); Maya only needs `host.docker.internal:6333`.
+- Embedding models live in the `maya-openwebui-data` volume and the container runs with `HF_HUB_OFFLINE=1`; after adding a new model to the config, set `HF_HUB_OFFLINE=0`, restart, then set it back.
+- Triggering the **Qdrant ERP Report Access Search** tool depends on the chat model's function calling; Maya also retrieves the same data through the **ERP Reports Access** knowledge, so answers work either way.

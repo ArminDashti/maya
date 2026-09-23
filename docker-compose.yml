@@ -21,6 +21,21 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-local}
       OPENAI_API_CONFIGS: ${OPENAI_API_CONFIGS}
       ENABLE_OLLAMA_API: ${ENABLE_OLLAMA_API:-true}
+      # Vector DB = Qdrant (Docker, host publish :6333). Collections are prefixed
+      # "<QDRANT_COLLECTION_PREFIX>_<knowledge-id>"; the ERP access dataset lives in
+      # the separate "erp_reports" collection (scripts/qdrant_ingest_erp_reports.py).
+      VECTOR_DB: ${VECTOR_DB:-qdrant}
+      QDRANT_URI: ${QDRANT_URI:-http://host.docker.internal:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      QDRANT_COLLECTION_PREFIX: ${QDRANT_COLLECTION_PREFIX:-maya}
+      QDRANT_ON_DISK: ${QDRANT_ON_DISK:-false}
+      # Persian-first corpus: multilingual embeddings, not the English all-MiniLM default.
+      # Persisted value lives in webui.db (Admin -> Settings -> Documents); this is the bootstrap default.
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      USE_EMBEDDING_MODEL_DOCKER: ${RAG_EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      # Embedding models are pre-downloaded into the volume; never wait on huggingface.co at
+      # startup or on a model switch (set HF_HUB_OFFLINE=0 in .env to allow fresh downloads).
+      HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-1}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_BASE_URLS: ${OLLAMA_BASE_URLS:-http://host.docker.internal:11434;http://10.10.16.118:11434}
       WEBUI_URL: ${WEBUI_URL:-http://maya.local}

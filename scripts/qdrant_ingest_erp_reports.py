@@ -35,7 +35,13 @@ import uuid
 import requests
 
 FIELDS = ("NameSystem", "ParentSystemtxt", "FullNamePersonel")
-FALLBACK_MODEL_PATH = "sentence-transformers/all-MiniLM-L6-v2"
+# Default must be the model Maya embeds queries with (exported inside the container);
+# a different model puts docs and queries in different vector spaces and silently
+# degrades every search (all-MiniLM-L6-v2 is English-only and was the old wrong default).
+DEFAULT_MODEL_PATH = os.environ.get(
+    "RAG_EMBEDDING_MODEL",
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+)
 DEFAULT_CACHE = os.environ.get(
     "SENTENCE_TRANSFORMERS_HOME", "/app/backend/data/cache/embedding/models"
 )
@@ -163,7 +169,7 @@ def main() -> int:
     parser.add_argument("--json", required=True, help="path to rep_converted.deduped.json")
     parser.add_argument("--url", default="http://host.docker.internal:6333")
     parser.add_argument("--collection", default="erp_reports")
-    parser.add_argument("--model", default=FALLBACK_MODEL_PATH)
+    parser.add_argument("--model", default=DEFAULT_MODEL_PATH)
     parser.add_argument("--cache", default=DEFAULT_CACHE)
     parser.add_argument("--batch", type=int, default=64, help="embedding batch size")
     parser.add_argument("--recreate", action="store_true", help="drop the collection first")
@@ -171,6 +177,16 @@ def main() -> int:
     args = parser.parse_args()
 
     records = load_records(args.json)
+
+    # Guard: the query tool embeds with RAG_EMBEDDING_MODEL; ingesting with anything
+    # else makes every score meaningless (both are 384-d, so it fails silently).
+    active_model = os.environ.get("RAG_EMBEDDING_MODEL")
+    if active_model and args.model != active_model:
+        raise SystemExit(
+            f"--model {args.model} does not match container RAG_EMBEDDING_MODEL "
+            f"{active_model}; searches would run in a different vector space. "
+            f"Re-run without --model (or pass --model {active_model})."
+        )
 
     # One point per distinct (NameSystem, ParentSystemtxt, FullNamePersonel) triple.
     unique: dict[str, dict] = {}

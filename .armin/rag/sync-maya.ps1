@@ -1,4 +1,4 @@
-# Sync Maya: RAG knowledge, 5 public models, skills, users.
+# Sync Maya: RAG knowledge, public models, skills, users.
 # RAG: C:\Users\armin\TFS\rag-for-ai\reports\
 # OpenAI: cursor-sdk-to-openai /v1 (OpenAI-compatible; headless is not)
 # Ollama local: host.docker.internal:11434  |  server: 10.10.16.118:11434
@@ -34,18 +34,45 @@ foreach ($f in $files) {
 
 $ragSystem = @"
 You are Maya's ERP report finder.
-Always use the attached knowledge collection first (prefer reports-index.md, then reports.md).
-For each match return: 1) Persian title 2) Menu path 3) Local link 4) Production link if present.
-Answer in the user's language. Do not invent pages that are not in the knowledge.
+Retrieval order (do not skip or invent):
+1) Prefer the injected system block "### ERP vector candidates (collection erp_reports)" — that IS the vector search; treat it as done. Never emit fake tool-call XML.
+2) Treat the listed rows as potential candidates (NameSystem + ParentSystemtxt).
+3) Keep all relevant candidates; drop clear mismatches only.
+4) Reply with a markdown table whose only columns are NameSystem and ParentSystemtxt. No other columns.
+Optional: tool search_erp_report_access or reports-access-*.md / reports-index.md / reports.md only to confirm details when present — never invent rows. If neither candidates nor context exist, say no matching rows. Answer in the user's language.
+"@
+
+# SmolLM2-360M: vector search -> collect candidates -> pick the best ones.
+$smolmSystem = @"
+You are Maya's ERP report finder and candidate selector.
+Your responsibility, in this exact order:
+1) Prefer the injected system block "### ERP vector candidates (collection erp_reports)" (that IS the vector search). Never emit fake tool-call XML.
+2) Candidates: use every NameSystem / ParentSystemtxt row from that block that could match the question.
+3) Keep all relevant candidates; drop clear mismatches only.
+4) Reply with a markdown table whose only columns are NameSystem and ParentSystemtxt.
+Never invent. If no candidate matches, say so. Answer in the user's language.
+"@
+
+# SmolLM2-1.7B: vector candidates -> choose relevant -> write final table.
+$smolm17System = @"
+You are Maya's ERP report finder and candidate selector (rerank pipeline).
+Your responsibility, in this exact order (do not skip or reorder steps):
+1) Get candidates: prefer the injected system block "### ERP vector candidates (collection erp_reports)" (that IS the vector search). Never emit fake tool-call XML. Collect every NameSystem / ParentSystemtxt row that could match.
+2) Rerank them: score each candidate against the user's question (title match, menu-path relevance, spelling/kashida variants). Sort strongest first; drop obvious mismatches.
+3) Choose from the reranked items: keep all relevant rows (or say none match). Prefer higher ranks unless a lower rank clearly fits better.
+4) Write final results: reply with a markdown table whose only columns are NameSystem and ParentSystemtxt. Never invent. Answer in the user's language. If no candidate matches, say so.
 "@
 
 # Display name -> workspace id -> base model id (after Ollama prefix / OpenAI id)
+# Optional System/Params keys override the shared RAG prompt/params per model.
 $models = @(
   @{ Id = "cursor-headless-cli-auto"; Name = "Cursor-Headless-CLI-Auto"; Base = "auto"; Kind = "openai" },
   @{ Id = "local-armin-gemma-4-e4b"; Name = "Local-Armin-Gemma-4-e4b"; Base = "local.gemma4:e4b"; Kind = "ollama" },
   @{ Id = "local-armin-qwen-2.5-2b"; Name = "Local-Armin-Qwen-2.5-2B"; Base = "local.qwen2.5:3b"; Kind = "ollama" },
   @{ Id = "server-gemma-4-e4b"; Name = "Server-Gemma-4-e4b"; Base = "server.gemma4:e4b"; Kind = "ollama" },
-  @{ Id = "server-qwen-2.5-2b"; Name = "Server-Qwen-2.5-2b"; Base = "server.qwen2.5:3b"; Kind = "ollama" }
+  @{ Id = "server-qwen-2.5-2b"; Name = "Server-Qwen-2.5-2b"; Base = "server.qwen2.5:3b"; Kind = "ollama" },
+  @{ Id = "local-armin-smollm2-360m"; Name = "Local-Armin-SmolLM2-360M"; Base = "local.smollm2:360m"; Kind = "ollama"; System = $smolmSystem; Params = @{ num_ctx = 8192 } },
+  @{ Id = "local-armin-smollm2-1.7b"; Name = "Local-Armin-SmolLM2-1.7B"; Base = "local.smollm2:1.7b"; Kind = "ollama"; System = $smolm17System; Params = @{ num_ctx = 8192 } }
 )
 
 $users = @(
@@ -61,42 +88,43 @@ $skills = @(
   @{
     Id = "find-erp-report"
     Name = "Find ERP Report"
-    Description = "Locate ERP reports from Maya RAG by Persian title, English page name, or menu path."
-    Content = @"
+    Description = "Locate ERP reports from Maya erp_reports vector candidates by Persian title, English page name, or menu path."
+    # Single-quoted here-string: backticks in markdown must not be PowerShell escapes (`r = CR).
+    Content = @'
 # Find ERP Report
 
-Use attached Knowledge **$KnowledgeName** before answering.
+Order: injected ERP vector candidates first (counts as vector search), then .md files.
 
-1. Search `reports-index.md` first for a short match (Persian title or English page name).
-2. Open the matching section in `reports.md` for menu path + local/production links.
-3. Reply with: Persian title, menu path, local link, production link (if any).
-4. If nothing matches, say so — do not invent report names or URLs.
-"@
+1. Prefer the system block "### ERP vector candidates (collection erp_reports)". Do not emit fake tool-call XML. Tool search_erp_report_access is optional for who-can-access only.
+2. Treat listed NameSystem / ParentSystemtxt rows as candidates; keep all relevant ones.
+3. Reply with a markdown table whose only columns are NameSystem and ParentSystemtxt.
+4. If nothing matches, say so - do not invent report names. Never refuse solely because you did not invoke a tool when candidates are already present.
+'@
   },
   @{
     Id = "report-index-first"
     Name = "Report Index First"
-    Description = "Prefer the compact reports-index.md for faster RAG hits."
-    Content = @"
+    Description = "Prefer injected erp_reports candidates; use reports-index.md only as secondary confirm."
+    Content = @'
 # Report Index First
 
 When the user asks for a report:
-- Query **reports-index.md** first (compact catalog).
-- Only pull detail from **reports.md** after you have a candidate id/title.
-- Keep answers short: title, path, links.
-"@
+- Step 1: use the injected "### ERP vector candidates (collection erp_reports)" block (that counts as the vector search). Never emit fake tool-call XML.
+- Step 2: optional confirm via **reports-index.md** / **reports.md** only if needed; final answer stays the NameSystem / ParentSystemtxt table.
+- Answer from injected candidates when present; do not refuse for missing a personal tool call.
+'@
   },
   @{
     Id = "persian-title-match"
     Name = "Persian Title Match"
-    Description = "Match Persian report titles and transliterations from RAG."
-    Content = @"
+    Description = "Match Persian report titles and transliterations from erp_reports candidates."
+    Content = @'
 # Persian Title Match
 
-Users often ask in Persian. Match against Persian titles in the knowledge.
+Users often ask in Persian: use the injected erp_reports candidates (semantic match absorbs spelling and kashida variations).
 Also accept English page names (e.g. CustomerCreditIncreaseReport).
-Return results in the user's language. Never invent titles not present in RAG.
-"@
+Final answer: markdown table with columns NameSystem and ParentSystemtxt only. Never invent titles not present in the candidates.
+'@
   }
 )
 
@@ -104,8 +132,9 @@ function Invoke-Json {
   param([string]$Method, [string]$Uri, [hashtable]$Headers, $Body)
   $params = @{ Uri = $Uri; Method = $Method; Headers = $Headers }
   if ($null -ne $Body) {
-    $params.ContentType = "application/json"
-    $params.Body = if ($Body -is [string]) { $Body } else { $Body | ConvertTo-Json -Depth 12 }
+    $params.ContentType = "application/json; charset=utf-8"
+    $json = if ($Body -is [string]) { $Body } else { $Body | ConvertTo-Json -Depth 12 }
+    $params.Body = [System.Text.Encoding]::UTF8.GetBytes($json)
   }
   return Invoke-RestMethod @params
 }
@@ -160,7 +189,7 @@ Invoke-Json POST "$WebUiUrl/ollama/config/update" $auth @{
       enable = $true
       prefix_id = "local"
       connection_type = "local"
-      model_ids = @("gemma4:e4b", "qwen2.5:3b")
+      model_ids = @("gemma4:e4b", "qwen2.5:3b", "smollm2:360m", "smollm2:1.7b")
     }
     "1" = @{
       enable = $true
@@ -290,7 +319,7 @@ foreach ($sk in $skills) {
     name = $sk.Name
     description = $sk.Description
     content = $sk.Content
-    meta = @{}
+    meta = @{ tags = @() }
     is_active = $true
     access_grants = @(
       @{ principal_type = "user"; principal_id = "*"; permission = "read" }
@@ -356,8 +385,9 @@ function Upsert-WorkspaceModel($m) {
   }
   $params = @{
     function_calling = "legacy"
-    system = $ragSystem
+    system = $(if ($m.System) { $m.System } else { $ragSystem })
   }
+  if ($m.Params) { foreach ($key in $m.Params.Keys) { $params[$key] = $m.Params[$key] } }
   $body = @{
     id = $m.Id
     name = $m.Name
@@ -524,4 +554,4 @@ Write-Host "  UI: http://maya.local/"
 Write-Host "  Path bookmarks: http://pc-armin/maya  http://10.20.9.59/maya  (302 -> http://maya.local/)"
 Write-Host "  Note: Qwen display names say 2B; installed Ollama tag is qwen2.5:3b on both hosts."
 Write-Host "  Note: Cursor-Headless-CLI-Auto uses cursor-sdk-to-openai -> auto (OpenAI-compat). Headless CLI API is not /v1 chat."
-Write-Host "  Note: OpenRouter free models via openrouter-api:8080 (OpenRouter-*-Free + Auto-Free) share ERP RAG."
+Write-Host "  Note: OpenRouter free models via openrouter-api:8080 (OpenRouter-*-Free + Auto-Free) share ERP RAG; erp_reports hits come from global filter erp_reports_inject (run python scripts/sync_maya_reports_access.py)."

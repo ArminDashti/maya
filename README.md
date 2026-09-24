@@ -48,10 +48,12 @@ Shared password for seeded users + bootstrap admin: `123456`.
 | OpenRouter-*-Free | `openrouter-api` → matching `:free` model |
 | Local-Armin-Gemma-4-e4b | local Ollama `gemma4:e4b` |
 | Local-Armin-Qwen-2.5-2B | local Ollama `qwen2.5:3b` (installed tag; no 2b on hosts) |
+| Local-Armin-SmolLM2-360M | local Ollama `smollm2:360m` — candidate selector (vector DB → `.md` candidates → best pick) |
+| Local-Armin-SmolLM2-1.7B | local Ollama `smollm2:1.7b` — candidate selector (vector DB → rerank → choose → show final result) |
 | Server-Gemma-4-e4b | server Ollama `gemma4:e4b` @ 10.10.16.118 |
 | Server-Qwen-2.5-2b | server Ollama `qwen2.5:3b` @ 10.10.16.118 |
 
-All of these share Knowledge **ERP Reports** from `C:\Users\armin\TFS\rag-for-ai\reports\` (`reports-index.md`, `reports.md`) plus Skills: Find ERP Report, Report Index First, Persian Title Match. Paid OpenRouter models stay hidden (proxy filters `/v1/models`).
+All of these share Knowledge **ERP Reports** from `C:\Users\armin\TFS\rag-for-ai\reports\` (`reports-index.md`, `reports.md`) plus Skills: Find ERP Report, Report Index First, Persian Title Match. **SmolLM2-360M** uses a candidate-selection system prompt (vector → `.md` candidates → best pick). **SmolLM2-1.7B** uses the rerank pipeline: vector candidates → rerank → choose from reranked → write final result for the user (`num_ctx=8192`). Paid OpenRouter models stay hidden (proxy filters `/v1/models`).
 
 Re-sync after RAG or user changes:
 
@@ -65,7 +67,8 @@ Performance defaults (low-resource server; tuned 2026-09-23):
 |---------|-------|-----|
 | Default + pinned model | **Server-Gemma-4-e4b** | Preferred chat model; only the main answer runs on the server |
 | Task model (`TASK_MODEL`, `TASK_MODEL_EXTERNAL`) | **Local-Armin-Qwen-2.5-2B** | Titles/tags/follow-ups/search-query gen/tool decisions run on local Ollama, keeping ~90s of aux LLM calls off the server |
-| Retrieval | vector search in Qdrant first → related `.md` chunks, `TOP_K=5`, hybrid on, `RELEVANCE_THRESHOLD=0.4` | Score gap is 0.48+ relevant vs ≤0.27 irrelevant; junk queries return 0 chunks |
+| Retrieval | vector search in Qdrant first → hybrid + CrossEncoder rerank (`mmarco-mMiniLMv2-L12-H384-v1`), `TOP_K=5`, `TOP_K_RERANKER=5`, `RELEVANCE_THRESHOLD=0.4` | Hybrid on; CrossEncoder reorders candidates before the LLM sees them |
+| Retrieval order (enforced) | Global filter `erp_reports_inject` rewrites the user text and searches Qdrant `erp_reports`, then injects candidates into every chat turn (OpenRouter / local / server). Model selects relevant rows and answers as a NameSystem / ParentSystemtxt table. Tool `search_erp_report_access` stays optional (not attached to OpenRouter-*-Free). Seeded by `.armin/rag/sync-maya.ps1` + `scripts/sync_maya_reports_access.py` | Works without function calling |
 | `num_ctx` (all four Ollama chat models) | **8192** | A RAG first turn is ~2.4–3.8k prompt tokens; the Ollama default 4096 overflows on turn two (server has ~25 GB RAM free) |
 
 ## Vector database (Qdrant) + ERP report-access data
@@ -77,14 +80,18 @@ Maya's retrieval does not run on the in-container Chroma DB any more: `VECTOR_DB
 | Vector DB | `qdrant/qdrant` container, host publish `:6333`, storage on `C:\Users\armin\qdrant_storage` |
 | Maya RAG collections | `maya_knowledge`, `maya_files` (`QDRANT_COLLECTION_PREFIX=maya`), 384-d cosine |
 | Embedding model | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` — the previous default `all-MiniLM-L6-v2` is English-only and ranks Persian queries badly |
+| Reranker | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` (multilingual CrossEncoder; hybrid search on) |
 | ERP access collection | `erp_reports` — 3732 vectors from `rep_converted.deduped.json`, payload = `NameSystem`, `ParentSystemtxt`, `FullNamePersonel` |
-| Chat tool | **Qdrant ERP Report Access Search** (`.armin/rag/tools/qdrant_erp_search.py`) — semantic search over `erp_reports`, optional `person` filter |
+| Global filter | **ERP Reports Vector Inject** (`.armin/rag/filters/erp_reports_inject.py`) — active + global; rewrites query → searches `erp_reports` → injects candidates into every model turn |
+| Chat tool | **Qdrant ERP Report Access Search** (`.armin/rag/tools/qdrant_erp_search.py`) — optional semantic search over `erp_reports` (person filter); not required when the global filter is on |
 | RAG markdown | `.armin/rag/generated/reports-access/*.md` → knowledge **ERP Reports Access** |
+| Chat answer shape | Markdown table columns **NameSystem** \| **ParentSystemtxt** (from injected `erp_reports` candidates) |
 
 Rebuild all three pieces:
 
 ```powershell
-# 1) vectors for the access dataset (runs inside maya-openwebui: reuses the cached embedding model)
+# 1) vectors for the access dataset (runs inside maya-openwebui: reuses the cached embedding model;
+#    the script defaults to the container's RAG_EMBEDDING_MODEL and refuses a mismatched --model)
 docker cp "C:/Users/armin/Desktop/rep_converted.deduped.json" maya-openwebui:/tmp/rep.json
 docker cp scripts/qdrant_ingest_erp_reports.py maya-openwebui:/tmp/qdrant_ingest.py
 docker exec maya-openwebui python /tmp/qdrant_ingest.py --json /tmp/rep.json --recreate
@@ -92,7 +99,7 @@ docker exec maya-openwebui python /tmp/qdrant_ingest.py --json /tmp/rep.json --r
 # 2) RAG-ready markdown from the same dataset
 python scripts/generate_reports_access_md.py --json "C:/Users/armin/Desktop/rep_converted.deduped.json" --out ".armin/rag/generated/reports-access"
 
-# 3) knowledge collection + tool + attach both to every shared-RAG model
+# 3) knowledge collection + tool + global erp_reports_inject filter + model wiring
 python scripts\sync_maya_reports_access.py
 ```
 
@@ -103,7 +110,7 @@ curl.exe http://localhost:6333/collections                 # erp_reports, maya_k
 curl.exe http://localhost:6333/collections/erp_reports     # points_count = 3732
 ```
 
-In chat, ask e.g. «چه کسانی به گزارش لیست دریافت و پرداخت دسترسی دارند؟» — the model answers from the Qdrant tool and from the **ERP Reports Access** knowledge.
+In chat (any model), ask e.g. «لیست دریافت و پرداخت» — the global filter injects `erp_reports` candidates; the model answers with a **NameSystem** / **ParentSystemtxt** table. No tool call required.
 
 
 ## OpenAI-compatible provider
@@ -151,4 +158,4 @@ Full wipe:
 - Server Ollama `10.10.16.118:11434` is reachable from Maya (`/ollama/api/tags/1` lists `qwen2.5:3b`, `gemma4:e4b`, `deepseek-r1:14b`). `gemma4:e4b` loads fine there since the 2026-09-23 upgrade to Ollama 0.34.3 (the old broken-blob failure is gone); it is CPU-only (~10 tok/s generate, ~58 tok/s prefill).
 - Qdrant runs outside this compose project (container `pensive_wright`, `qdrant/qdrant`, storage `C:\Users\armin\qdrant_storage`); Maya only needs `host.docker.internal:6333`.
 - Embedding models live in the `maya-openwebui-data` volume and the container runs with `HF_HUB_OFFLINE=1`; after adding a new model to the config, set `HF_HUB_OFFLINE=0`, restart, then set it back.
-- Triggering the **Qdrant ERP Report Access Search** tool depends on the chat model's function calling; Maya also retrieves the same data through the **ERP Reports Access** knowledge, so answers work either way.
+- Triggering the **Qdrant ERP Report Access Search** tool depends on the chat model's function calling. **OpenRouter-*-Free** models do not get that tool attached (they invent fake tool XML). All models still get `erp_reports` candidates via the global filter **ERP Reports Vector Inject** and answer with a NameSystem / ParentSystemtxt table. Stronger models (Cursor Auto, Ollama) may additionally call `search_erp_report_access` for who-can-access questions.

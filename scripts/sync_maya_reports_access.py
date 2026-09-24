@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wire the ERP report-access RAG into Maya: markdown knowledge + Qdrant search tool.
+"""Wire the ERP report-access RAG into Maya: markdown knowledge + Qdrant tool + global filter.
 
 Companion to
 
@@ -13,12 +13,15 @@ What this script does, in order:
 3. uploads/refreshes ``.armin/rag/generated/reports-access/*.md`` and links them to it
    (re-uploading is what re-embeds them into Qdrant, so never skip it after regenerating),
 4. creates/updates the tool ``qdrant_erp_search`` from ``.armin/rag/tools/qdrant_erp_search.py``,
-5. attaches both to every model that already carries the shared ``ERP Reports`` knowledge.
+5. creates/updates the global filter ``erp_reports_inject`` (inlet searches ``erp_reports``
+   for every chat model — no tool call required),
+6. attaches knowledge + tool to every model that already carries shared ``ERP Reports``
+   (OpenRouter models still skip the tool; the global filter covers them).
 
 Usage::
 
     python scripts/sync_maya_reports_access.py                 # full sync
-    python scripts/sync_maya_reports_access.py --skip-uploads  # only tool + model wiring
+    python scripts/sync_maya_reports_access.py --skip-uploads  # only tool/filter + model wiring
 """
 
 from __future__ import annotations
@@ -141,10 +144,13 @@ def main() -> int:
     parser.add_argument("--tool-path", default=os.path.join(".armin", "rag", "tools", "qdrant_erp_search.py"))
     parser.add_argument("--tool-id", default="qdrant_erp_search",
                         help="alphanumerics and underscores only - Open WebUI rejects anything else")
+    parser.add_argument("--filter-path", default=os.path.join(".armin", "rag", "filters", "erp_reports_inject.py"))
+    parser.add_argument("--filter-id", default="erp_reports_inject",
+                        help="alphanumerics and underscores only - Open WebUI rejects anything else")
     parser.add_argument("--parent-knowledge-name", default="ERP Reports",
                         help="models carrying this knowledge also get the new knowledge + tool")
     parser.add_argument("--skip-uploads", action="store_true",
-                        help="keep the already-uploaded markdown and only refresh tool + model wiring")
+                        help="keep the already-uploaded markdown and only refresh tool/filter + model wiring")
     parser.add_argument("--models", nargs="*", default=None,
                         help="limit the model wiring to these model ids (default: every shared-RAG model)")
     args = parser.parse_args()
@@ -206,6 +212,45 @@ def main() -> int:
         maya.call("POST", "/api/v1/tools/create", tool_body, timeout=120)
         print(f"created tool {args.tool_id}")
 
+    # --- global filter (erp_reports inject for every model) -----------------
+    if not os.path.exists(args.filter_path):
+        raise SystemExit(f"missing filter source: {args.filter_path}")
+    filter_body = {
+        "id": args.filter_id,
+        "name": "ERP Reports Vector Inject",
+        "content": open(args.filter_path, encoding="utf-8").read(),
+        "meta": {
+            "description": (
+                "Global inlet: rewrite user text, search Qdrant erp_reports, "
+                "inject NameSystem/ParentSystemtxt candidates (no tool call)."
+            )
+        },
+    }
+    existing_filter = None
+    try:
+        existing_filter = maya.call("GET", f"/api/v1/functions/id/{args.filter_id}", timeout=60)
+    except RuntimeError:
+        pass
+    if existing_filter and existing_filter.get("id"):
+        maya.call("POST", f"/api/v1/functions/id/{args.filter_id}/update", filter_body, timeout=120)
+        print(f"updated filter {args.filter_id}")
+        filter_row = maya.call("GET", f"/api/v1/functions/id/{args.filter_id}", timeout=60)
+    else:
+        maya.call("POST", "/api/v1/functions/create", filter_body, timeout=120)
+        print(f"created filter {args.filter_id}")
+        filter_row = maya.call("GET", f"/api/v1/functions/id/{args.filter_id}", timeout=60)
+    # Create defaults to inactive / non-global; toggle until both flags are on.
+    if not filter_row.get("is_active"):
+        filter_row = maya.call("POST", f"/api/v1/functions/id/{args.filter_id}/toggle", timeout=60)
+        print(f"activated filter {args.filter_id}")
+    if not filter_row.get("is_global"):
+        filter_row = maya.call("POST", f"/api/v1/functions/id/{args.filter_id}/toggle/global", timeout=60)
+        print(f"set filter {args.filter_id} global")
+    print(
+        f"filter {args.filter_id}: active={filter_row.get('is_active')} "
+        f"global={filter_row.get('is_global')} type={filter_row.get('type')}"
+    )
+
     # --- attach to shared-RAG models ---------------------------------------
     # The /api/models listing has no meta, so each candidate is read in full first.
     listing = maya.call("GET", "/api/models", timeout=600).get("data", [])
@@ -229,7 +274,16 @@ def main() -> int:
             knowledge.append({"id": knowledge_id, "name": args.knowledge_name, "type": "collection"})
         meta["knowledge"] = knowledge
         tool_ids = list(meta.get("toolIds") or [])
-        if args.tool_id not in tool_ids:
+        # Free OpenRouter models often invent fake tool XML instead of native
+        # function calling; global filter erp_reports_inject still feeds them.
+        name = detail.get("name") or ""
+        skip_tool = (
+            model_id.startswith("openrouter-")
+            or name.startswith("OpenRouter-")
+        )
+        if skip_tool:
+            tool_ids = [t for t in tool_ids if t != args.tool_id]
+        elif args.tool_id not in tool_ids:
             tool_ids.append(args.tool_id)
         meta["toolIds"] = tool_ids
         maya.call("POST", "/api/v1/models/model/update", {
@@ -246,6 +300,7 @@ def main() -> int:
 
     # --- report -------------------------------------------------------------
     verify = maya.call("GET", f"/api/v1/tools/id/{args.tool_id}", timeout=60)
+    verify_filter = maya.call("GET", f"/api/v1/functions/id/{args.filter_id}", timeout=60)
     sample = None
     try:
         sample = maya.call("GET", "/api/v1/models/model?id=server-qwen-2.5-2b", timeout=120)
@@ -254,8 +309,17 @@ def main() -> int:
     meta = (sample or {}).get("meta") or {}
     print("verify:")
     print(f"  tool id           : {verify.get('id')}")
+    print(
+        f"  filter id         : {verify_filter.get('id')} "
+        f"active={verify_filter.get('is_active')} global={verify_filter.get('is_global')}"
+    )
     print(f"  knowledge         : {knowledge_id} ({linked} files)")
     print(f"  server-qwen-2.5-2b: knowledge={[k.get('name') for k in meta.get('knowledge', [])]} tools={meta.get('toolIds')}")
+    if not verify_filter.get("is_active") or not verify_filter.get("is_global"):
+        raise SystemExit(
+            f"filter {args.filter_id} must be active+global "
+            f"(active={verify_filter.get('is_active')} global={verify_filter.get('is_global')})"
+        )
     return 0
 
 

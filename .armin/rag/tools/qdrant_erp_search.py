@@ -82,9 +82,14 @@ class Tools:
 
     def search_erp_report_access(self, query: str, person: str = "", top_k: int = 0) -> str:
         """
-        Search the ERP report-access vector database. Use it whenever the user asks which
-        reports exist, where a report sits in the ERP menu, or which employee can reach a
-        report. Persian and English queries both work; the search is semantic (embedding
+        Callable name: search_erp_report_access (do not invent other names).
+
+        Search the ERP report-access vector database when the platform exposes this
+        tool. Prefer any Qdrant/knowledge context already injected into the chat turn;
+        that retrieval already counts as the vector search. Use this tool for
+        who-can-access questions when available, then open reports-access-*.md /
+        reports-index.md / reports.md to confirm details.
+        Persian and English queries both work; the search is semantic (embedding
         similarity), so partial titles and plain-language descriptions are fine.
 
         :param query: What to look for, e.g. "لیست دریافت و پرداخت" or "warehouse count report".

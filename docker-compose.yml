@@ -33,6 +33,12 @@ services:
       # Persisted value lives in webui.db (Admin -> Settings -> Documents); this is the bootstrap default.
       RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
       USE_EMBEDDING_MODEL_DOCKER: ${RAG_EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      # Hybrid + CrossEncoder rerank (multilingual MiniLM; download once, then HF_HUB_OFFLINE=1 is fine).
+      ENABLE_RAG_HYBRID_SEARCH: ${ENABLE_RAG_HYBRID_SEARCH:-true}
+      RAG_TOP_K: ${RAG_TOP_K:-5}
+      RAG_TOP_K_RERANKER: ${RAG_TOP_K_RERANKER:-5}
+      RAG_RELEVANCE_THRESHOLD: ${RAG_RELEVANCE_THRESHOLD:-0.4}
+      RAG_RERANKING_MODEL: ${RAG_RERANKING_MODEL:-cross-encoder/mmarco-mMiniLMv2-L12-H384-v1}
       # Embedding models are pre-downloaded into the volume; never wait on huggingface.co at
       # startup or on a model switch (set HF_HUB_OFFLINE=0 in .env to allow fresh downloads).
       HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-1}

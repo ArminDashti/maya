@@ -23,3 +23,9 @@ backend/open_webui/static/fonts/NotoSansKR-Variable.ttf
 backend/open_webui/static/fonts/NotoSansSC-Regular.ttf
 backend/open_webui/static/fonts/NotoSansSC-Variable.ttf
 # auto-managed: files > 5MB
+
+# machine-local install state (port, names) written by install-on-local-docker.ps1
+.armin/deploy/local-docker/state.json
+
+# auto-managed large-file section (>5MB)
+# (paths appended by commit-push-to-github)

@@ -1,4 +1,5 @@
 stack_name: maya
+local_address: maya.local
 image_tag: ghcr.io/open-webui/open-webui:v0.11.3
 compose_file: ../../../docker-compose.yml
 dockerfile: ""

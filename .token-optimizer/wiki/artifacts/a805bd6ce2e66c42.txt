@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "pattern": "rep_converted|reports-access|URL|webpage|address",
+  "metadata": {
+    "totalMatches": 0,
+    "filesSearched": 7,
+    "filesWithMatches": 0,
+    "returnedMatches": 0,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 4,
+    "originalTokenCount": 4,
+    "compressionRatio": 1,
+    "duration": 285,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized grep response was materialized; repository bytes scanned are not model-context tokens."
+  },
+  "matches": [],
+  "hint": "No literal match for \"rep_converted|reports-access|URL|webpage|address\", but it matches as a regular expression. Patterns are literal unless you pass regex: true."
+}

@@ -1,0 +1,204 @@
+{
+  "success": true,
+  "pattern": "sync-maya",
+  "metadata": {
+    "totalMatches": 30,
+    "filesSearched": 4174,
+    "searchTruncated": true,
+    "searchTruncatedBy": "cap",
+    "searchNote": "Search stopped once 30 match(es) were collected, so files were left unsearched. Raise `limit` to search further.",
+    "filesWithMatches": 10,
+    "returnedMatches": 30,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 4247,
+    "originalTokenCount": 4247,
+    "compressionRatio": 1,
+    "duration": 1987,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized grep response was materialized; repository bytes scanned are not model-context tokens."
+  },
+  "matches": [
+    {
+      "file": "README.md",
+      "lineNumber": 27,
+      "line": ".\\.armin\\rag\\sync-maya.ps1     # connections, the four models, knowledge, visibility\r",
+      "match": "sync-maya"
+    },
+    {
+      "file": "README.md",
+      "lineNumber": 52,
+      "line": "`sync-maya.ps1` deactivates every stored model outside the four (the provider\r",
+      "match": "sync-maya"
+    },
+    {
+      "file": "README.md",
+      "lineNumber": 65,
+      "line": ".\\.armin\\rag\\sync-maya.ps1                  # idempotent\r",
+      "match": "sync-maya"
+    },
+    {
+      "file": "README.md",
+      "lineNumber": 66,
+      "line": ".\\.armin\\rag\\sync-maya.ps1 -RefreshKnowledge # re-embed the .md files (purges their vectors first)\r",
+      "match": "sync-maya"
+    },
+    {
+      "file": "README.md",
+      "lineNumber": 76,
+      "line": "| Retrieval order (enforced) | Global filter `erp_reports_inject` rewrites the user text and searches the `erp_reports` **tenant** of the single `maya` collection, then injects candidates into every chat turn (all four models). Model selects relevant rows and answers as a NameSystem / ParentSystemtxt table. Tool `search_erp_report_access` stays optional. Seeded by `.armin/rag/sync-maya.ps1` + `scripts/sync_maya_reports_access.py` | Works without function calling |\r",
+      "match": "sync-maya"
+    },
+    {
+      "file": "README.md",
+      "lineNumber": 124,
+      "line": "Three OpenAI-compatible connections, applied by `.armin/rag/sync-maya.ps1` (keys come from the host environment and are never written to the repo):\r",
+      "match": "sync-maya"
+    },
+    {
+      "file": "docker-compose.yml",
+      "lineNumber": 2,
+      "line": "# Bootstrap defaults; run .armin/rag/sync-maya.ps1 after startup to configure\r",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".env.example",
+      "lineNumber": 54,
+      "line": "# Default = OpenRouter-Auto (see .armin/rag/sync-maya.ps1)",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".env",
+      "lineNumber": 24,
+      "line": "# (sync-maya.ps1 applies the same through Admin -> Connections.)",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".env",
+      "lineNumber": 49,
+      "line": "# Default = OpenRouter-Auto (see .armin/rag/sync-maya.ps1)",
+      "match": "sync-maya"
+    },
+    {
+      "file": "scripts\\sync-maya.ps1",
+      "lineNumber": 3,
+      "line": "& (Join-Path $PSScriptRoot '..\\.armin\\rag\\sync-maya.ps1') @args",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 16,
+      "line": "{\"schemaVersion\":2,\"id\":\"g-794d14f3\",\"kind\":\"capture\",\"ref\":\"e3aec0a6f21fef68\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":96,\"bytes\":4677,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504337505}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 16,
+      "line": "{\"schemaVersion\":2,\"id\":\"g-794d14f3\",\"kind\":\"capture\",\"ref\":\"e3aec0a6f21fef68\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":96,\"bytes\":4677,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504337505}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 18,
+      "line": "{\"schemaVersion\":2,\"id\":\"i-9b074e38\",\"kind\":\"capture\",\"ref\":\"1b0c98eb9e42d7aa\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":98,\"bytes\":4767,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504342760}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 18,
+      "line": "{\"schemaVersion\":2,\"id\":\"i-9b074e38\",\"kind\":\"capture\",\"ref\":\"1b0c98eb9e42d7aa\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":98,\"bytes\":4767,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504342760}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 20,
+      "line": "{\"schemaVersion\":2,\"id\":\"k-50a3fabc\",\"kind\":\"capture\",\"ref\":\"1f5e6ea7988dc6b3\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":80,\"bytes\":4863,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504342910}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 20,
+      "line": "{\"schemaVersion\":2,\"id\":\"k-50a3fabc\",\"kind\":\"capture\",\"ref\":\"1f5e6ea7988dc6b3\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":80,\"bytes\":4863,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504342910}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 22,
+      "line": "{\"schemaVersion\":2,\"id\":\"m-7babcb65\",\"kind\":\"capture\",\"ref\":\"e4bdc1be2ae19e98\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":260,\"bytes\":4833,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504356187}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 22,
+      "line": "{\"schemaVersion\":2,\"id\":\"m-7babcb65\",\"kind\":\"capture\",\"ref\":\"e4bdc1be2ae19e98\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":260,\"bytes\":4833,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504356187}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 24,
+      "line": "{\"schemaVersion\":2,\"id\":\"o-32b3c300\",\"kind\":\"capture\",\"ref\":\"80b87d6bc4d8674f\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":156,\"bytes\":2779,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504356649}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 24,
+      "line": "{\"schemaVersion\":2,\"id\":\"o-32b3c300\",\"kind\":\"capture\",\"ref\":\"80b87d6bc4d8674f\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":156,\"bytes\":2779,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504356649}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 28,
+      "line": "{\"schemaVersion\":2,\"id\":\"s-c02140d4\",\"kind\":\"capture\",\"ref\":\"90e7d14d2a27113a\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":73,\"bytes\":4824,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504371748}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 28,
+      "line": "{\"schemaVersion\":2,\"id\":\"s-c02140d4\",\"kind\":\"capture\",\"ref\":\"90e7d14d2a27113a\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":73,\"bytes\":4824,\"anchors\":[\".armin/rag/sync-maya.ps1\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\".armin/rag/sync-maya.ps1\",\"hash\":\"0a506ce5b425be7b\"}],\"at\":1790504371748}",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".armin\\rag\\sync-user-65778-reports.ps1",
+      "lineNumber": 1,
+      "line": "# Legacy wrapper — use sync-maya.ps1\r",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".armin\\rag\\sync-user-65778-reports.ps1",
+      "lineNumber": 3,
+      "line": "Write-Warning 'sync-user-65778-reports.ps1 is deprecated; running sync-maya.ps1'\r",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".armin\\rag\\sync-user-65778-reports.ps1",
+      "lineNumber": 4,
+      "line": "& (Join-Path $PSScriptRoot 'sync-maya.ps1') @args\r",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\e98ff400061ab599.txt",
+      "lineNumber": 2,
+      "line": "  \"content\": \"# Copy to .env (never commit .env)\\r\\n\\r\\n# Host port published by Open WebUI (container listens on 8080)\\r\\nPUBLISH_PORT=3080\\n\\r\\n# Brand (Open WebUI license appends \\\" (Open WebUI)\\\" when not the default name)\\r\\nWEBUI_NAME=Maya\\r\\n\\r\\n# OpenAI-compatible provider = cursor-sdk-to-openai (Admin → Connections).\\r\\n# Must use Docker DNS from maya-openwebui — NOT localhost.\\r\\n# Host publish for browsers/tools outside Docker: http://127.0.0.1:8173/v1\\r\\n# Note: cursor-headless-cli-to-api.local is NOT OpenAI-compatible (/api/v1/runs).\\r\\nENABLE_OPENAI_API=true\\r\\nOPENAI_API_BASE_URL=http://cursor-sdk-to-openai-api-1:8140/v1\\r\\nOPENAI_API_KEY=local\\r\\nOPENAI_API_CONFIGS={\\\"0\\\":{\\\"enable\\\":true,\\\"tags\\\":[{\\\"name\\\":\\\"cursor-sdk-to-openai\\\"}],\\\"connection_type\\\":\\\"external\\\",\\\"auth_type\\\":\\\"bearer\\\",\\\"prefix_id\\\":\\\"\\\",\\\"model_ids\\\":[\\\"gemini-3.8-flash\\\"]}}\\r\\n\\r\\n# Dual Ollama: local (host) + LAN server. Prefixes applied at runtime by sync-maya.ps1.\\r\\nENABLE_OLLAMA_API=true\\r\\nOLLAMA_BASE_URL=http://host.docker.internal:11434\\r\\nOLLAMA_BASE_URLS=http://host.docker.internal:11434;http://10.10.16.118:11434\\r\\n\\r\\n# Vector DB = Qdrant on Docker (host publish :6333); collections get the \\\"maya\\\" prefix.\\r\\n# ERP access dataset (3738 rows -> 3732 vectors): scripts/qdrant_ingest_erp_reports.py\\r\\nVECTOR_DB=qdrant\\r\\nQDRANT_URI=http://host.docker.internal:6333\\r\\nQDRANT_API_KEY=\\r\\nQDRANT_COLLECTION_PREFIX=maya\\r\\nQDRANT_ON_DISK=false\\r\\n# Persian corpus -> multilingual embedding model (bootstrap default; admin UI value wins)\\r\\nHF_HUB_OFFLINE=1\\r\\nRAG_EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2\\r\\n\\r\\n# Public URL for links/callbacks. Local http://maya.local; /maya redirects to :3080.\\r\\nWEBUI_URL=http://maya.local\\r\\nWEBUI_ADMIN_EMAIL=armin@local\\r\\nWEBUI_ADMIN_NAME=armin\\r\\nWEBUI_ADMIN_PASSWORD=123456\\r\\n# Default = Cursor-Gemini-3.8 (see .armin/rag/sync-maya.ps1)\\r\\nDEFAULT_MODELS=cursor-gemini-3.8\\r\\nWEBUI_SECRET_KEY=change-me-...",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\e98ff400061ab599.txt",
+      "lineNumber": 2,
+      "line": "  \"content\": \"# Copy to .env (never commit .env)\\r\\n\\r\\n# Host port published by Open WebUI (container listens on 8080)\\r\\nPUBLISH_PORT=3080\\n\\r\\n# Brand (Open WebUI license appends \\\" (Open WebUI)\\\" when not the default name)\\r\\nWEBUI_NAME=Maya\\r\\n\\r\\n# OpenAI-compatible provider = cursor-sdk-to-openai (Admin → Connections).\\r\\n# Must use Docker DNS from maya-openwebui — NOT localhost.\\r\\n# Host publish for browsers/tools outside Docker: http://127.0.0.1:8173/v1\\r\\n# Note: cursor-headless-cli-to-api.local is NOT OpenAI-compatible (/api/v1/runs).\\r\\nENABLE_OPENAI_API=true\\r\\nOPENAI_API_BASE_URL=http://cursor-sdk-to-openai-api-1:8140/v1\\r\\nOPENAI_API_KEY=local\\r\\nOPENAI_API_CONFIGS={\\\"0\\\":{\\\"enable\\\":true,\\\"tags\\\":[{\\\"name\\\":\\\"cursor-sdk-to-openai\\\"}],\\\"connection_type\\\":\\\"external\\\",\\\"auth_type\\\":\\\"bearer\\\",\\\"prefix_id\\\":\\\"\\\",\\\"model_ids\\\":[\\\"gemini-3.8-flash\\\"]}}\\r\\n\\r\\n# Dual Ollama: local (host) + LAN server. Prefixes applied at runtime by sync-maya.ps1.\\r\\nENABLE_OLLAMA_API=true\\r\\nOLLAMA_BASE_URL=http://host.docker.internal:11434\\r\\nOLLAMA_BASE_URLS=http://host.docker.internal:11434;http://10.10.16.118:11434\\r\\n\\r\\n# Vector DB = Qdrant on Docker (host publish :6333); collections get the \\\"maya\\\" prefix.\\r\\n# ERP access dataset (3738 rows -> 3732 vectors): scripts/qdrant_ingest_erp_reports.py\\r\\nVECTOR_DB=qdrant\\r\\nQDRANT_URI=http://host.docker.internal:6333\\r\\nQDRANT_API_KEY=\\r\\nQDRANT_COLLECTION_PREFIX=maya\\r\\nQDRANT_ON_DISK=false\\r\\n# Persian corpus -> multilingual embedding model (bootstrap default; admin UI value wins)\\r\\nHF_HUB_OFFLINE=1\\r\\nRAG_EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2\\r\\n\\r\\n# Public URL for links/callbacks. Local http://maya.local; /maya redirects to :3080.\\r\\nWEBUI_URL=http://maya.local\\r\\nWEBUI_ADMIN_EMAIL=armin@local\\r\\nWEBUI_ADMIN_NAME=armin\\r\\nWEBUI_ADMIN_PASSWORD=123456\\r\\n# Default = Cursor-Gemini-3.8 (see .armin/rag/sync-maya.ps1)\\r\\nDEFAULT_MODELS=cursor-gemini-3.8\\r\\nWEBUI_SECRET_KEY=change-me-...",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\e4bdc1be2ae19e98.txt",
+      "lineNumber": 4,
+      "line": "    \"path\": \".armin/rag/sync-maya.ps1\",",
+      "match": "sync-maya"
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\e3aec0a6f21fef68.txt",
+      "lineNumber": 4,
+      "line": "    \"path\": \".armin/rag/sync-maya.ps1\",",
+      "match": "sync-maya"
+    }
+  ]
+}

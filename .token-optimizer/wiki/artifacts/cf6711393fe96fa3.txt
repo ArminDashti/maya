@@ -1,0 +1,99 @@
+{
+  "success": true,
+  "pattern": "FullNamePersonel",
+  "metadata": {
+    "totalMatches": 13,
+    "filesSearched": 973,
+    "filesWithMatches": 4,
+    "returnedMatches": 13,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 588,
+    "originalTokenCount": 588,
+    "compressionRatio": 1,
+    "duration": 1668,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized grep response was materialized; repository bytes scanned are not model-context tokens."
+  },
+  "matches": [
+    {
+      "file": "scripts\\qdrant_merge_collections.py",
+      "lineNumber": 32,
+      "line": "# the ERP rows only carry NameSystem/ParentSystemtxt/FullNamePersonel. The merge",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": "scripts\\qdrant_merge_collections.py",
+      "lineNumber": 34,
+      "line": "TEXT_FIELDS = ('NameSystem', 'ParentSystemtxt', 'FullNamePersonel')",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 12,
+      "line": "* ``FullNamePersonel`` - employee the access row belongs to",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 37,
+      "line": "FIELDS = (\"NameSystem\", \"ParentSystemtxt\", \"FullNamePersonel\")",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 223,
+      "line": "    # One point per distinct (NameSystem, ParentSystemtxt, FullNamePersonel) triple.",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 269,
+      "line": "    client.create_keyword_index(\"FullNamePersonel\")",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 270,
+      "line": "    print(\"payload index: FullNamePersonel (keyword)\", flush=True)",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 298,
+      "line": "                print(f\"  score={hit.get('score', 0):.4f} :: {payload.get('FullNamePersonel')}\"",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": "scripts\\generate_reports_access_md.py",
+      "lineNumber": 13,
+      "line": "Only ``NameSystem``, ``ParentSystemtxt`` and ``FullNamePersonel`` are used; the decorative",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": "scripts\\generate_reports_access_md.py",
+      "lineNumber": 30,
+      "line": "FIELDS = (\"NameSystem\", \"ParentSystemtxt\", \"FullNamePersonel\")",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": "scripts\\generate_reports_access_md.py",
+      "lineNumber": 63,
+      "line": "        person = clean(str(record.get(\"FullNamePersonel\", \"\")))",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": ".armin\\rag\\tools\\qdrant_erp_search.py",
+      "lineNumber": 15,
+      "line": "# Payload per point: NameSystem, ParentSystemtxt, FullNamePersonel.",
+      "match": "FullNamePersonel"
+    },
+    {
+      "file": ".armin\\rag\\tools\\qdrant_erp_search.py",
+      "lineNumber": 91,
+      "line": "            must.append({\"key\": \"FullNamePersonel\", \"match\": {\"value\": _normalize(person)}})",
+      "match": "FullNamePersonel"
+    }
+  ]
+}

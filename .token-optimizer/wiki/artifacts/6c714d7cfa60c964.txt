@@ -1,0 +1,18 @@
+{
+  "content": "# Legacy wrapper — use sync-maya.ps1\r\n$ErrorActionPreference = 'Stop'\r\nWrite-Warning 'sync-user-65778-reports.ps1 is deprecated; running sync-maya.ps1'\r\n& (Join-Path $PSScriptRoot 'sync-maya.ps1') @args\r\n",
+  "metadata": {
+    "path": "C:\\Users\\armin\\GitHub\\maya\\.armin\\rag\\sync-user-65778-reports.ps1",
+    "size": 206,
+    "encoding": "utf-8",
+    "fileType": "text",
+    "hash": "a543a71a504a9c60c9ef27045c72fcc3e9a7de27a1411ca90e6b518b752bbc01",
+    "fromCache": false,
+    "isDiff": false,
+    "chunked": false,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 62,
+    "originalTokenCount": 62,
+    "compressionRatio": 1
+  }
+}

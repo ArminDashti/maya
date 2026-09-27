@@ -1,7 +1,13 @@
-# Sync Maya: RAG knowledge, public models, skills, users.
+# Sync Maya: RAG knowledge, the four public models, skills, users.
 # RAG: C:\Users\armin\TFS\rag-for-ai\reports\
-# OpenAI: cursor-sdk-to-openai /v1 (OpenAI-compatible; headless is not)
-# Ollama local: host.docker.internal:11434  |  server: 10.10.16.118:11434
+#
+# Models: exactly four, everything else stays hidden/disabled.
+#   OpenRouter-Auto            -> openrouter/auto        (OpenRouter, OPENROUTER_API_KEY)
+#   OpenCode-Mimo-v2.6-Flash   -> mimo-v2.6-flash        (OpenCode Go, OPENCODE_API_KEY)
+#   OpenCode-DeepSeek-4.1-Flash-> deepseek-v4.1-flash    (OpenCode Go)
+#   OpenCode-GPT-6-Luna        -> gpt-6-luna             (OpenCode Go, Responses API only)
+# All four share the same RAG: knowledge (.md) + the ERP vector rows, and Qdrant
+# holds exactly one collection ("maya") - see scripts/qdrant_merge_collections.py.
 
 param(
   [string]$WebUiUrl = "http://127.0.0.1:3080",
@@ -10,18 +16,28 @@ param(
   [string]$SharedPassword = "123456",
   [string]$RagDir = "C:\Users\armin\TFS\rag-for-ai\reports",
   [string]$KnowledgeName = "ERP Reports",
-  [string]$OpenAiBaseUrl = "http://cursor-sdk-to-openai-api-1:8140/v1",
-  [string]$OpenAiKey = "local",
-  # Maya container → openrouter-api on pc-armin-local
-  [string]$OpenRouterBaseUrl = "http://openrouter-api:8080/v1",
-  # Sync host → nginx hostname (for listing free display ids)
-  [string]$OpenRouterHostUrl = "http://openrouter-to-openai-compatible-api.local/v1",
-  [string]$OpenRouterKey = "local",
+  # Keys come from the environment (never from .env / git).
+  [string]$OpenRouterBaseUrl = "https://openrouter.ai/api/v1",
+  [string]$OpenRouterKey = $env:OPENROUTER_API_KEY,
+  # OpenCode Go serves chat/completions and - for some models - only /responses.
+  [string]$OpenCodeBaseUrl = "https://opencode.ai/zen/go/v1",
+  [string]$OpenCodeKey = $env:OPENCODE_API_KEY,
+  # Go wants a stable session id per conversation; {{CHAT_ID}} is substituted
+  # per request by Open WebUI (empty chat id -> "maya-").
+  [string]$OpenCodeSession = "maya-{{CHAT_ID}}",
+  [string]$QdrantUrl = "http://localhost:6333",
+  [string]$QdrantCollection = "maya",
+  # Re-embed the .md files (purges their vectors in Qdrant first). Off by default:
+  # linking an already-linked file again duplicates chunks in the shared collection.
+  [switch]$RefreshKnowledge,
   [string]$OllamaLocalUrl = "http://host.docker.internal:11434",
   [string]$OllamaServerUrl = "http://10.10.16.118:11434"
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not $OpenRouterKey) { throw "OPENROUTER_API_KEY is not set in the environment" }
+if (-not $OpenCodeKey) { throw "OPENCODE_API_KEY is not set in the environment" }
 
 $wantedNames = @("reports-index.md", "reports.md")
 $files = @(
@@ -35,44 +51,26 @@ foreach ($f in $files) {
 $ragSystem = @"
 You are Maya's ERP report finder.
 Retrieval order (do not skip or invent):
-1) Prefer the injected system block "### ERP vector candidates (collection erp_reports)" — that IS the vector search; treat it as done. Never emit fake tool-call XML.
+1) Prefer the injected system block "### ERP vector candidates (collection maya)" — that IS the vector search; treat it as done. Never emit fake tool-call XML.
 2) Treat the listed rows as potential candidates (NameSystem + ParentSystemtxt).
 3) Keep all relevant candidates; drop clear mismatches only.
-4) Reply with a markdown table whose only columns are NameSystem and ParentSystemtxt. No other columns.
-Optional: tool search_erp_report_access or reports-access-*.md / reports-index.md / reports.md only to confirm details when present — never invent rows. If neither candidates nor context exist, say no matching rows. Answer in the user's language.
+4) All user-facing messages must be in Persian. Preserve report names, page paths, and URLs as provided by the source.
+5) Reply with a Markdown table with exactly three Persian columns: نام گزارش, آدرس در صفحه, and پیوند.
+   Use NameSystem as the report name and ParentSystemtxt as the page path/address. Put a clickable Persian link in پیوند using http://erp.dpdc.co:8880/<URL-encoded-ParentSystemtxt>, preserving / and - in the URL path. If ParentSystemtxt is missing, show آدرس موجود نیست and provide no link. Do not include score or employee.
+6) Only answer within ERP report-finding and report-access scope. For unrelated requests, do not answer the topic; reply in Persian: «متأسفم، نمی‌توانم درباره این موضوع پاسخ بدهم؛ رئیسم، آرمین، اجازه نمی‌دهد، هرچند اطلاعات زیادی دارم.»
+7) End every report response, including no-match responses, with «{نام کاربر} عزیز، آیا به کمک بیشتری نیاز دارید؟». Use the user's name from the conversation/profile when available; never guess a name. If unavailable, ask «آیا به کمک بیشتری نیاز دارید؟».
+Optional: tool search_erp_report_access or reports-access-*.md / reports-index.md / reports.md only to confirm details when present — never invent rows. If neither candidates nor context exist, say so in Persian.
 "@
 
-# SmolLM2-360M: vector search -> collect candidates -> pick the best ones.
-$smolmSystem = @"
-You are Maya's ERP report finder and candidate selector.
-Your responsibility, in this exact order:
-1) Prefer the injected system block "### ERP vector candidates (collection erp_reports)" (that IS the vector search). Never emit fake tool-call XML.
-2) Candidates: use every NameSystem / ParentSystemtxt row from that block that could match the question.
-3) Keep all relevant candidates; drop clear mismatches only.
-4) Reply with a markdown table whose only columns are NameSystem and ParentSystemtxt.
-Never invent. If no candidate matches, say so. Answer in the user's language.
-"@
-
-# SmolLM2-1.7B: vector candidates -> choose relevant -> write final table.
-$smolm17System = @"
-You are Maya's ERP report finder and candidate selector (rerank pipeline).
-Your responsibility, in this exact order (do not skip or reorder steps):
-1) Get candidates: prefer the injected system block "### ERP vector candidates (collection erp_reports)" (that IS the vector search). Never emit fake tool-call XML. Collect every NameSystem / ParentSystemtxt row that could match.
-2) Rerank them: score each candidate against the user's question (title match, menu-path relevance, spelling/kashida variants). Sort strongest first; drop obvious mismatches.
-3) Choose from the reranked items: keep all relevant rows (or say none match). Prefer higher ranks unless a lower rank clearly fits better.
-4) Write final results: reply with a markdown table whose only columns are NameSystem and ParentSystemtxt. Never invent. Answer in the user's language. If no candidate matches, say so.
-"@
-
-# Display name -> workspace id -> base model id (after Ollama prefix / OpenAI id)
+# Display name -> workspace id -> base model id (OpenAI-compatible connection id).
 # Optional System/Params keys override the shared RAG prompt/params per model.
 $models = @(
-  @{ Id = "cursor-headless-cli-auto"; Name = "Cursor-Headless-CLI-Auto"; Base = "auto"; Kind = "openai" },
-  @{ Id = "local-armin-gemma-4-e4b"; Name = "Local-Armin-Gemma-4-e4b"; Base = "local.gemma4:e4b"; Kind = "ollama" },
-  @{ Id = "local-armin-qwen-2.5-2b"; Name = "Local-Armin-Qwen-2.5-2B"; Base = "local.qwen2.5:3b"; Kind = "ollama" },
-  @{ Id = "server-gemma-4-e4b"; Name = "Server-Gemma-4-e4b"; Base = "server.gemma4:e4b"; Kind = "ollama" },
-  @{ Id = "server-qwen-2.5-2b"; Name = "Server-Qwen-2.5-2b"; Base = "server.qwen2.5:3b"; Kind = "ollama" },
-  @{ Id = "local-armin-smollm2-360m"; Name = "Local-Armin-SmolLM2-360M"; Base = "local.smollm2:360m"; Kind = "ollama"; System = $smolmSystem; Params = @{ num_ctx = 8192 } },
-  @{ Id = "local-armin-smollm2-1.7b"; Name = "Local-Armin-SmolLM2-1.7B"; Base = "local.smollm2:1.7b"; Kind = "ollama"; System = $smolm17System; Params = @{ num_ctx = 8192 } }
+  # OpenRouter meters by credits: an unbounded max_tokens (131k) is rejected when
+  # the balance only covers ~37k, so cap the completion size on that model.
+  @{ Id = "openrouter-auto"; Name = "OpenRouter-Auto"; Base = "openrouter/auto"; Kind = "openai"; Params = @{ max_tokens = 8192 } },
+  @{ Id = "opencode-mimo-v2-6-flash"; Name = "OpenCode-Mimo-v2.6-Flash"; Base = "mimo-v2.6-flash"; Kind = "opencode" },
+  @{ Id = "opencode-deepseek-4-1-flash"; Name = "OpenCode-DeepSeek-4.1-Flash"; Base = "deepseek-v4.1-flash"; Kind = "opencode" },
+  @{ Id = "opencode-gpt-6-luna"; Name = "OpenCode-GPT-6-Luna"; Base = "gpt-6-luna"; Kind = "opencode" }
 )
 
 $users = @(
@@ -84,49 +82,35 @@ $users = @(
   @{ Name = "MJ Amiri"; Email = "m.amiri@ondpline.com"; Role = "user" }
 )
 
+# One unified skill (the former Report Index First + Persian Title Match content
+# folded into Find ERP Report).
 $skills = @(
   @{
     Id = "find-erp-report"
     Name = "Find ERP Report"
-    Description = "Locate ERP reports from Maya erp_reports vector candidates by Persian title, English page name, or menu path."
+    Description = "Locate ERP reports from the injected ERP vector candidates (collection maya) by Persian title, English page name, or menu path. Prefer injected candidates; use reports-index.md only as secondary confirm."
     # Single-quoted here-string: backticks in markdown must not be PowerShell escapes (`r = CR).
     Content = @'
 # Find ERP Report
 
 Order: injected ERP vector candidates first (counts as vector search), then .md files.
 
-1. Prefer the system block "### ERP vector candidates (collection erp_reports)". Do not emit fake tool-call XML. Tool search_erp_report_access is optional for who-can-access only.
-2. Treat listed NameSystem / ParentSystemtxt rows as candidates; keep all relevant ones.
-3. Reply with a markdown table whose only columns are NameSystem and ParentSystemtxt.
-4. If nothing matches, say so - do not invent report names. Never refuse solely because you did not invoke a tool when candidates are already present.
-'@
-  },
-  @{
-    Id = "report-index-first"
-    Name = "Report Index First"
-    Description = "Prefer injected erp_reports candidates; use reports-index.md only as secondary confirm."
-    Content = @'
-# Report Index First
-
-When the user asks for a report:
-- Step 1: use the injected "### ERP vector candidates (collection erp_reports)" block (that counts as the vector search). Never emit fake tool-call XML.
-- Step 2: optional confirm via **reports-index.md** / **reports.md** only if needed; final answer stays the NameSystem / ParentSystemtxt table.
-- Answer from injected candidates when present; do not refuse for missing a personal tool call.
-'@
-  },
-  @{
-    Id = "persian-title-match"
-    Name = "Persian Title Match"
-    Description = "Match Persian report titles and transliterations from erp_reports candidates."
-    Content = @'
-# Persian Title Match
-
-Users often ask in Persian: use the injected erp_reports candidates (semantic match absorbs spelling and kashida variations).
-Also accept English page names (e.g. CustomerCreditIncreaseReport).
-Final answer: markdown table with columns NameSystem and ParentSystemtxt only. Never invent titles not present in the candidates.
+1. Prefer the system block "### ERP vector candidates (collection maya)". That IS the vector search - treat it as done. Never emit fake tool-call XML. Tool search_erp_report_access is optional for who-can-access only.
+2. Treat listed NameSystem / ParentSystemtxt rows as candidates; keep all relevant ones, drop clear mismatches only.
+3. **reports-index.md** / **reports.md** are secondary confirmation only, and only when needed - never invent rows from them.
+4. Persian titles: answer from the injected candidates (semantic match absorbs spelling and kashida variations). Also accept English page names (e.g. CustomerCreditIncreaseReport).
+5. If nothing matches, say so - do not invent report names or titles that are not in the candidates. Never refuse solely because you did not invoke a tool when candidates are already present.
+6. Only answer within ERP report-finding and report-access scope. For unrelated requests, do not answer the topic; reply in Persian: «متأسفم، نمی‌توانم درباره این موضوع پاسخ بدهم؛ رئیسم، آرمین، اجازه نمی‌دهد، هرچند اطلاعات زیادی دارم.»
+7. All user-facing messages must be in Persian. Preserve report names, page paths, and URLs as provided by the source.
+8. Reply with a Markdown table with exactly three Persian columns: نام گزارش, آدرس در صفحه, and پیوند.
+   Use NameSystem as the report name and ParentSystemtxt as the page path/address. Put a clickable Persian link in پیوند using http://erp.dpdc.co:8880/<URL-encoded-ParentSystemtxt>, preserving / and - in the URL path. If ParentSystemtxt is missing, show آدرس موجود نیست and provide no link. Do not include score or employee.
+9. End every report response, including no-match responses, with «{نام کاربر} عزیز، آیا به کمک بیشتری نیاز دارید؟». Use the user's name from the conversation/profile when available; never guess a name. If unavailable, ask «آیا به کمک بیشتری نیاز دارید؟».
 '@
   }
 )
+
+# Skills retired by the merge; deleted after the upsert loop so only the unified one stays.
+$legacySkillIds = @("report-index-first", "persian-title-match")
 
 function Invoke-Json {
   param([string]$Method, [string]$Uri, [hashtable]$Headers, $Body)
@@ -154,52 +138,62 @@ if (-not $token) { throw "Could not sign in as $AdminEmail" }
 $auth = @{ Authorization = "Bearer $token"; Accept = "application/json" }
 
 # --- providers ---
+# 1) OpenRouter            -> openrouter/auto          (chat/completions)
+# 2) OpenCode Go           -> mimo/deepseek            (chat/completions)
+# 3) OpenCode Go           -> gpt-6-luna               (Responses API only)
+# OpenCode Go wants a stable x-opencode-session per conversation and a
+# non-SDK user agent; both are connection headers ({{CHAT_ID}} is substituted
+# per request by Open WebUI).
+$openCodeHeaders = @{
+  "x-opencode-session" = $OpenCodeSession
+  "User-Agent" = "maya-openwebui/1.0"
+}
 Invoke-Json POST "$WebUiUrl/openai/config/update" $auth @{
   ENABLE_OPENAI_API = $true
-  OPENAI_API_BASE_URLS = @($OpenAiBaseUrl, $OpenRouterBaseUrl)
-  OPENAI_API_KEYS = @($OpenAiKey, $OpenRouterKey)
+  OPENAI_API_BASE_URLS = @($OpenRouterBaseUrl, $OpenCodeBaseUrl, $OpenCodeBaseUrl)
+  OPENAI_API_KEYS = @($OpenRouterKey, $OpenCodeKey, $OpenCodeKey)
   OPENAI_API_CONFIGS = @{
     "0" = @{
       enable = $true
-      tags = @(@{ name = "cursor-sdk-to-openai" })
+      tags = @(@{ name = "openrouter" })
       connection_type = "external"
       auth_type = "bearer"
       prefix_id = ""
-      # Only expose Auto for the Cursor-Headless-CLI-Auto workspace model
-      model_ids = @("auto")
+      model_ids = @("openrouter/auto")
     }
     "1" = @{
       enable = $true
-      tags = @(@{ name = "openrouter-free" })
+      tags = @(@{ name = "opencode-go" })
       connection_type = "external"
       auth_type = "bearer"
       prefix_id = ""
-      # Proxy already filters to OpenRouter-*-Free ids; empty = all from that connection
-      model_ids = @()
+      model_ids = @("mimo-v2.6-flash", "deepseek-v4.1-flash")
+      headers = $openCodeHeaders
+    }
+    "2" = @{
+      enable = $true
+      tags = @(@{ name = "opencode-go" })
+      connection_type = "external"
+      auth_type = "bearer"
+      prefix_id = ""
+      api_type = "responses"
+      model_ids = @("gpt-6-luna")
+      headers = $openCodeHeaders
     }
   }
 } | Out-Null
-Write-Host "OpenAI -> $OpenAiBaseUrl (auto) + $OpenRouterBaseUrl (free only)"
+Write-Host "Connections: openrouter/auto + opencode-go chat (mimo, deepseek) + opencode-go responses (gpt-6-luna)"
 
+# Ollama stays configured for later, but disabled - it must not add models.
 Invoke-Json POST "$WebUiUrl/ollama/config/update" $auth @{
-  ENABLE_OLLAMA_API = $true
+  ENABLE_OLLAMA_API = $false
   OLLAMA_BASE_URLS = @($OllamaLocalUrl, $OllamaServerUrl)
   OLLAMA_API_CONFIGS = @{
-    "0" = @{
-      enable = $true
-      prefix_id = "local"
-      connection_type = "local"
-      model_ids = @("gemma4:e4b", "qwen2.5:3b", "smollm2:360m", "smollm2:1.7b")
-    }
-    "1" = @{
-      enable = $true
-      prefix_id = "server"
-      connection_type = "external"
-      model_ids = @("gemma4:e4b", "qwen2.5:3b")
-    }
+    "0" = @{ enable = $false; prefix_id = "local"; connection_type = "local"; model_ids = @() }
+    "1" = @{ enable = $false; prefix_id = "server"; connection_type = "external"; model_ids = @() }
   }
 } | Out-Null
-Write-Host "Ollama local=$OllamaLocalUrl server=$OllamaServerUrl"
+Write-Host "Ollama connection disabled (host=$OllamaLocalUrl server=$OllamaServerUrl kept for later)"
 
 # --- knowledge ---
 $kbList = Invoke-Json GET "$WebUiUrl/api/v1/knowledge/" $auth $null
@@ -214,6 +208,12 @@ if (-not $kb) {
   Write-Host "Using knowledge $($kb.id)"
 }
 $kbId = $kb.id
+
+# Every public model gets the whole vector store: all knowledge bases (the .md
+# files live in there), so all four models reach the vector DB and the .md docs.
+$allKnowledge = @((Invoke-Json GET "$WebUiUrl/api/v1/knowledge/" $auth $null).items) |
+  ForEach-Object { @{ id = $_.id; name = $_.name; type = "collection" } }
+Write-Host ("Knowledge attached to every model: " + (($allKnowledge | ForEach-Object { $_.name }) -join ", "))
 
 function Get-OpenWebUiFiles {
   return @((Invoke-Json GET "$WebUiUrl/api/v1/files/" $auth $null).items)
@@ -254,23 +254,55 @@ function Add-FileToKnowledge([string]$fileId, [string]$name) {
   }
 }
 
-$detail = Invoke-Json GET "$WebUiUrl/api/v1/knowledge/$kbId" $auth $null
-foreach ($existing in @($detail.files)) {
-  $name = $null
-  if ($existing.meta) { $name = $existing.meta.name }
-  if ($name -in $wantedNames) {
-    try {
-      Invoke-Json POST "$WebUiUrl/api/v1/knowledge/$kbId/file/remove" $auth @{ file_id = $existing.id } | Out-Null
-      Write-Host "Removed old $name"
-    } catch {
-      Write-Warning "Could not remove $name : $($_.Exception.Message)"
+# Link the .md files ONCE. Re-adding an already-linked file makes Open WebUI
+# re-embed it while file/remove leaves the old chunks behind, so every run used
+# to duplicate vectors in the shared collection. Linked files are skipped
+# unless -RefreshKnowledge is passed, which purges the knowledge/file tenants
+# in Qdrant first so the re-embed starts from a clean slate.
+# The knowledge detail route returns files=null in this build, so read the
+# authoritative /files route (same as scripts/sync_maya_reports_access.py) -
+# with $detail.files the map stayed empty and every run re-added (re-embedded)
+# the files, duplicating their vectors in the shared collection.
+$linkedResp = Invoke-Json GET "$WebUiUrl/api/v1/knowledge/$kbId/files" $auth $null
+$linkedByName = @{}
+foreach ($existing in @($linkedResp.items)) {
+  if ($existing.meta -and $existing.meta.name) { $linkedByName[$existing.meta.name] = $existing.id }
+}
+
+if ($RefreshKnowledge) {
+  foreach ($name in $wantedNames) {
+    if ($linkedByName.ContainsKey($name)) {
+      try {
+        Invoke-Json POST "$WebUiUrl/api/v1/knowledge/$kbId/file/remove" $auth @{ file_id = $linkedByName[$name] } | Out-Null
+        Write-Host "Removed $name (refresh)"
+      } catch {
+        Write-Warning "Could not remove $name : $($_.Exception.Message)"
+      }
     }
   }
+  $staleTenants = @($kbId) + @($linkedByName.Values | ForEach-Object { "file-$_" })
+  foreach ($tenant in $staleTenants) {
+    try {
+      $purge = @{ filter = @{ must = @(@{ key = "tenant_id"; match = @{ value = $tenant } }) } } | ConvertTo-Json -Depth 6
+      Invoke-RestMethod -Uri "$QdrantUrl/collections/$QdrantCollection/points/delete?wait=true" `
+        -Method Post -ContentType "application/json" -Body $purge | Out-Null
+      Write-Host "Purged stale vectors of tenant $tenant"
+    } catch {
+      Write-Warning "Purge of tenant $tenant failed: $($_.Exception.Message)"
+    }
+  }
+  $linkedByName.Clear()
 }
 
 $linkedFileIds = @()
 foreach ($path in $files) {
   $name = [IO.Path]::GetFileName($path)
+  if ($linkedByName.ContainsKey($name)) {
+    Write-Host "Already linked: $name ($($linkedByName[$name]))"
+    $linkedFileIds += $linkedByName[$name]
+    continue
+  }
+
   $existing = Find-FileByName $name
   if ($existing) {
     Write-Host "Reusing $name ($($existing.id))"
@@ -351,36 +383,24 @@ foreach ($sk in $skills) {
   } catch { }
 }
 
-# --- models ---
-# Append OpenRouter free display models (same RAG as Cursor-Headless-CLI-Auto)
-try {
-  $orList = Invoke-RestMethod -Uri "$OpenRouterHostUrl/models" -Headers @{
-    Authorization = "Bearer $OpenRouterKey"
-    Accept = "application/json"
+# --- retire skills folded into find-erp-report (best-effort) ---
+$keepSkillIds = @($skills | ForEach-Object { $_.Id })
+foreach ($legacyId in $legacySkillIds) {
+  if ($keepSkillIds -contains $legacyId) { continue }
+  try {
+    Invoke-Json DELETE "$WebUiUrl/api/v1/skills/id/$legacyId/delete" $auth $null | Out-Null
+    Write-Host "Removed merged skill $legacyId"
+  } catch {
+    Write-Host "Skill $legacyId not present (ok)"
   }
-  $orRows = @()
-  foreach ($row in @($orList.data)) {
-    $disp = [string]$row.id
-    if ([string]::IsNullOrWhiteSpace($disp)) { continue }
-    if ($disp -notlike "OpenRouter-*-Free") { continue }
-    $slug = ($disp.ToLower() -replace "[^a-z0-9]+", "-").Trim("-")
-    $orRows += @{ Id = $slug; Name = $disp; Base = $disp; Kind = "openai-openrouter" }
-  }
-  if ($orRows.Count -gt 0) {
-    $models = @($models) + $orRows
-    Write-Host "OpenRouter free models + RAG: $($orRows.Count)"
-  } else {
-    Write-Warning "OpenRouter /models returned no OpenRouter-*-Free ids (rebuild proxy?)"
-  }
-} catch {
-  Write-Warning "OpenRouter models fetch failed ($OpenRouterHostUrl): $($_.Exception.Message)"
 }
 
+# --- models ---
 function Upsert-WorkspaceModel($m) {
   $meta = @{
     description = "$($m.Name) + shared RAG ($KnowledgeName). Base=$($m.Base)"
     hidden = $false
-    knowledge = @(@{ id = $kbId; name = $KnowledgeName; type = "collection" })
+    knowledge = $(if (@($allKnowledge).Count -gt 0) { @($allKnowledge) } else { @(@{ id = $kbId; name = $KnowledgeName; type = "collection" }) })
     skillIds = $skillIds
   }
   $params = @{
@@ -481,7 +501,13 @@ foreach ($otherId in @(
 $keepIds = @($models | ForEach-Object { $_.Id })
 $requiredBases = @($models | ForEach-Object { $_.Base })
 try {
-  $allBase = @(Invoke-Json GET "$WebUiUrl/api/v1/models/base" $auth $null)
+  # /base only lists provider models; /export lists every stored row (workspace
+  # presets included) - those are the ones that must be hidden + deactivated.
+  # Invoke-Json hands back the JSON array as ONE object, so @(call) would wrap
+  # it into a 1-element array holding the whole list (and the loop would run
+  # once with an array as $row -> 422). Assign first, wrap afterwards.
+  $allBase = Invoke-Json GET "$WebUiUrl/api/v1/models/export" $auth $null
+  $allBase = @($allBase)
   foreach ($row in $allBase) {
     if ($keepIds -contains $row.id) { continue }
     $meta = @{}
@@ -516,6 +542,13 @@ Invoke-Json POST "$WebUiUrl/api/v1/configs/models" $auth @{
 } | Out-Null
 Write-Host "Default model $($order[0]); order=$($order -join ', ')"
 
+# Auxiliary LLM calls (titles, tags, follow-ups, search queries) run on the cheap
+# Mimo model - Ollama is disabled, so the task model must be one of the four.
+Invoke-Json POST "$WebUiUrl/api/v1/configs/import" $auth @{
+  config = @{ "task.model.default" = "opencode-mimo-v2-6-flash" }
+} | Out-Null
+Write-Host "Task model: opencode-mimo-v2-6-flash"
+
 # --- users ---
 foreach ($u in $users) {
   try {
@@ -549,9 +582,42 @@ try {
   Write-Warning "Could not change $AdminEmail password (may already be shared): $($_.Exception.Message)"
 }
 
+# --- verify: exactly one Qdrant collection ---
+try {
+  $cols = @((Invoke-RestMethod -Uri "$QdrantUrl/collections" -TimeoutSec 15).result.collections |
+    ForEach-Object { $_.name })
+  if ($cols.Count -eq 1 -and $cols[0] -eq $QdrantCollection) {
+    Write-Host "Qdrant: exactly one collection '$QdrantCollection'"
+  } else {
+    Write-Warning ("Qdrant has " + $cols.Count + " collections [" + ($cols -join ", ") +
+      "]; expected only '$QdrantCollection'. Merge with python scripts/qdrant_merge_collections.py --delete-sources")
+  }
+} catch {
+  Write-Warning "Qdrant collection check failed: $($_.Exception.Message)"
+}
+
+# --- verify: exactly the four public models ---
+try {
+  $visible = @(Invoke-Json GET "$WebUiUrl/api/v1/models" $auth $null).data | ForEach-Object { $_.id }
+  $visible = @($visible)
+  # The provider base rows stay active (routing needs them) but are meta.hidden,
+  # which is what the model picker filters on - so they are allowed to exist.
+  $allowed = @($models | ForEach-Object { $_.Id }) + @($models | ForEach-Object { $_.Base })
+  $extra = @($visible | Where-Object { $allowed -notcontains $_ })
+  if ($visible.Count -eq 0) {
+    Write-Warning "Model list is empty - provider check failed (connections unreachable?)"
+  } elseif ($extra.Count -gt 0) {
+    Write-Warning ("Unexpected models still visible: " + ($extra -join ", "))
+  } else {
+    Write-Host ("Visible models (" + $visible.Count + "): " + ($visible -join ", "))
+  }
+} catch {
+  Write-Warning "Model visibility check failed: $($_.Exception.Message)"
+}
+
 Write-Host "Done. Models + RAG + skills + users ready."
 Write-Host "  UI: http://maya.local/"
 Write-Host "  Path bookmarks: http://pc-armin/maya  http://10.20.9.59/maya  (302 -> http://maya.local/)"
-Write-Host "  Note: Qwen display names say 2B; installed Ollama tag is qwen2.5:3b on both hosts."
-Write-Host "  Note: Cursor-Headless-CLI-Auto uses cursor-sdk-to-openai -> auto (OpenAI-compat). Headless CLI API is not /v1 chat."
-Write-Host "  Note: OpenRouter free models via openrouter-api:8080 (OpenRouter-*-Free + Auto-Free) share ERP RAG; erp_reports hits come from global filter erp_reports_inject (run python scripts/sync_maya_reports_access.py)."
+Write-Host "  Models: OpenRouter-Auto, OpenCode-Mimo-v2.6-Flash, OpenCode-DeepSeek-4.1-Flash, OpenCode-GPT-6-Luna"
+Write-Host "  RAG: knowledge (.md) attached to every model + ERP rows injected by global filter erp_reports_inject (collection '$QdrantCollection')."
+Write-Host "  Vectors: one Qdrant collection only - scripts/qdrant_merge_collections.py merges strays back in."

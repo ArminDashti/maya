@@ -1,0 +1,72 @@
+{
+  "success": true,
+  "pattern": "ERP vector candidates",
+  "metadata": {
+    "totalMatches": 8,
+    "filesSearched": 2576,
+    "searchTruncated": true,
+    "searchTruncatedBy": "deadline",
+    "searchNote": "Search stopped at the 10000ms deadline after reading 2576 file(s), so files were left unsearched and matches may be missing. Narrow `path`/`files`, or raise TOKEN_OPTIMIZER_TRAVERSAL_DEADLINE_MS.",
+    "filesWithMatches": 1,
+    "returnedMatches": 8,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 461,
+    "originalTokenCount": 461,
+    "compressionRatio": 1,
+    "duration": 10003,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized grep response was materialized; repository bytes scanned are not model-context tokens."
+  },
+  "matches": [
+    {
+      "file": ".armin\\rag\\sync-maya.ps1",
+      "lineNumber": 54,
+      "line": "1) Prefer the injected system block \"### ERP vector candidates (collection maya)\" — that IS the vector search; treat it as done. Never emit fake tool-call XML.\r",
+      "match": "ERP vector candidates"
+    },
+    {
+      "file": ".armin\\rag\\sync-maya.ps1",
+      "lineNumber": 85,
+      "line": "    Description = \"Locate ERP reports from the injected ERP vector candidates (collection maya) by Persian title, English page name, or menu path.\"\r",
+      "match": "ERP vector candidates"
+    },
+    {
+      "file": ".armin\\rag\\sync-maya.ps1",
+      "lineNumber": 90,
+      "line": "Order: injected ERP vector candidates first (counts as vector search), then .md files.\r",
+      "match": "ERP vector candidates"
+    },
+    {
+      "file": ".armin\\rag\\sync-maya.ps1",
+      "lineNumber": 92,
+      "line": "1. Prefer the system block \"### ERP vector candidates (collection maya)\". Do not emit fake tool-call XML. Tool search_erp_report_access is optional for who-can-access only.\r",
+      "match": "ERP vector candidates"
+    },
+    {
+      "file": ".armin\\rag\\sync-maya.ps1",
+      "lineNumber": 101,
+      "line": "    Description = \"Prefer injected ERP vector candidates; use reports-index.md only as secondary confirm.\"\r",
+      "match": "ERP vector candidates"
+    },
+    {
+      "file": ".armin\\rag\\sync-maya.ps1",
+      "lineNumber": 106,
+      "line": "- Step 1: use the injected \"### ERP vector candidates (collection maya)\" block (that counts as the vector search). Never emit fake tool-call XML.\r",
+      "match": "ERP vector candidates"
+    },
+    {
+      "file": ".armin\\rag\\sync-maya.ps1",
+      "lineNumber": 114,
+      "line": "    Description = \"Match Persian report titles and transliterations from the injected ERP vector candidates.\"\r",
+      "match": "ERP vector candidates"
+    },
+    {
+      "file": ".armin\\rag\\sync-maya.ps1",
+      "lineNumber": 118,
+      "line": "Users often ask in Persian: use the injected ERP vector candidates (semantic match absorbs spelling and kashida variations).\r",
+      "match": "ERP vector candidates"
+    }
+  ]
+}

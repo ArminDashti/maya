@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "pattern": "**/*.db",
+  "metadata": {
+    "totalMatches": 2,
+    "returnedCount": 2,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 17,
+    "originalTokenCount": 17,
+    "compressionRatio": 1,
+    "duration": 1180,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized glob response was materialized; caller-requested pagination is not optimizer-created savings."
+  },
+  "files": [
+    ".armin\\session-logs.db",
+    ".codegraph\\codegraph.db"
+  ]
+}

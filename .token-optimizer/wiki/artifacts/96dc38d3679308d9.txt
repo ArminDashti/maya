@@ -1,0 +1,26 @@
+{
+  "success": true,
+  "pattern": "**/SKILL.md",
+  "metadata": {
+    "totalMatches": 6,
+    "returnedCount": 6,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 96,
+    "originalTokenCount": 96,
+    "compressionRatio": 1,
+    "duration": 10010,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized glob response was materialized; caller-requested pagination is not optimizer-created savings.",
+    "ignoreNote": "The search stopped at a bound before it finished, so how many matches the ignore patterns withheld is unknown. It is not being reported as zero."
+  },
+  "files": [
+    ".claude\\skills\\gitnexus-cli\\SKILL.md",
+    ".claude\\skills\\gitnexus-debugging\\SKILL.md",
+    ".claude\\skills\\gitnexus-exploring\\SKILL.md",
+    ".claude\\skills\\gitnexus-guide\\SKILL.md",
+    ".claude\\skills\\gitnexus-impact-analysis\\SKILL.md",
+    ".claude\\skills\\gitnexus-refactoring\\SKILL.md"
+  ]
+}

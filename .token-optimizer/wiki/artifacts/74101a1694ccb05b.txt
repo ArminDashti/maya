@@ -1,0 +1,20 @@
+{
+  "content": "    for path in sorted(by_menu, key=lambda value: (value.count(\"\\u203a\"), value)):\n        entries = by_menu[path]\n        menu_lines += [\n            f\"## {path or '(no menu path)'}\",\n            \"\",\n            f\"Reports: **{len({name for name, _ in entries})}** &middot; access rows: {len(entries)}.\",\n            \"\",\n            \"| Report (NameSystem) | Employees with access |\",\n            \"|---------------------|-----------------------|\",\n        ]\n        per_name: dict[str, set[str]] = defaultdict(set)\n        for name, person in entries:\n            per_name[name].add(person)\n        for name in sorted(per_name):\n            people = \", \".join(sorted(per_name[name]))\n            menu_lines.append(f\"| {name} | {people} |\")\n        menu_lines.append(\"\")\n\n    # --- by employee -----------------------------------------------------------\n    by_person: dict[str, Counter] = defaultdict(Counter)\n    for name, path, person in rows:\n        by_person[person][path] += 1\n\n    person_lines = [\"# ERP Report Access by Employee\", \"\", header_note, \"\"]\n    for person in sorted(by_person):\n        counter = by_person[person]\n        person_lines += [\n            f\"## {person}\",\n            \"\",\n            f\"Reachable reports: **{sum(counter.values())}** across {len(counter)} menu paths.\",\n            \"\",\n            \"| Menu path | Reports |\",\n            \"|-----------|---------|\",\n        ]\n        for path, count in sorted(counter.items(), key=lambda item: (-item[1], item[0])):\n            person_lines.append(f\"| {path or '(no menu path)'} | {count} |\")\n        person_lines.append(\"\")\n\n    written = {}\n    for filename, lines in (\n        (\"reports-access-index.md\", index_lines),\n        (\"reports-access-by-menu.md\", menu_lines),\n        (\"reports-access-by-personnel.md\", person_lines),\n    ):\n        target = os.path.join(args.out, filename)\n        with open(target, \"w\", encoding=\"utf-8\", newline=\"\\n\") as handle:\n            handle.write(\"\\n\".join(lines) + \"\\n\")\n        written[filename] = os.path.getsize(target)\n\n    for filename, size in written.items():\n        print(f\"{filename}: {size:,} bytes -> {os.path.join(args.out, filename)}\")\n    print(f\"rows={len(rows)} reports={len(per_report)} employees={len(by_person)} paths={len(by_menu)}\")\n    return 0\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n\n\n// [chunk 2 of 2. Call smart_read again with chunkIndex=<n> for another.]",
+  "metadata": {
+    "path": "C:\\Users\\armin\\GitHub\\maya\\scripts\\generate_reports_access_md.py",
+    "size": 6337,
+    "encoding": "utf-8",
+    "fileType": "python",
+    "hash": "eecf798b8b5319decc4bc4088b90000013afb2255f5559ed73d18b897f575871",
+    "fromCache": true,
+    "isDiff": false,
+    "chunked": true,
+    "truncated": false,
+    "tokensSaved": 951,
+    "tokenCount": 563,
+    "originalTokenCount": 1514,
+    "compressionRatio": 0.3825715641309505,
+    "chunkCount": 2,
+    "chunkIndex": 1
+  }
+}

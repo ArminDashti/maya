@@ -1,0 +1,20 @@
+{
+  "content": "            \"\\u0644\\u06cc\\u0633\\u062a \\u062f\\u0631\\u06cc\\u0627\\u0641\\u062a \\u0648 \\u067e\\u0631\\u062f\\u0627\\u062e\\u062a\",  # لیست دریافت و پرداخت\n            \"\\u062a\\u0627\\u0626\\u06cc\\u062f \\u067e\\u0631\\u062f\\u0627\\u062e\\u062a \\u0627\\u0646\\u0628\\u0627\\u0631\",  # تائید پرداخت انبار\n            \"\\u0645\\u06cc\\u062a\\u0631\\u0627 \\u06a9\\u0631\\u06cc\\u0645\\u06cc\",  # میترا کریمی\n        ):\n            vector = model.encode([normalize(query)], normalize_embeddings=True)[0].tolist()\n            hits = client.search(vector, limit=3, tenant=args.tenant)\n            print(f\"\\nquery: {query}\")\n            for hit in hits:\n                payload = hit.get(\"payload\", {})\n                print(f\"  score={hit.get('score', 0):.4f} :: {payload.get('FullNamePersonel')}\"\n                      f\" :: {payload.get('NameSystem')}\")\n\n    return 0\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n\n\n// [chunk 4 of 4. Call smart_read again with chunkIndex=<n> for another.]",
+  "metadata": {
+    "path": "C:\\Users\\armin\\GitHub\\maya\\scripts\\qdrant_ingest_erp_reports.py",
+    "size": 12790,
+    "encoding": "utf-8",
+    "fileType": "python",
+    "hash": "19d215b579f435a6f3165842d982b887f6a350df792f548728d829d1448ff91f",
+    "fromCache": true,
+    "isDiff": false,
+    "chunked": true,
+    "truncated": false,
+    "tokensSaved": 2711,
+    "tokenCount": 333,
+    "originalTokenCount": 3044,
+    "compressionRatio": 0.07510005493211959,
+    "chunkCount": 4,
+    "chunkIndex": 3
+  }
+}

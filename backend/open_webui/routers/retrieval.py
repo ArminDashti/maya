@@ -80,6 +80,7 @@ from open_webui.retrieval.utils import (
     query_collection_with_hybrid_search,
     query_doc,
     query_doc_with_hybrid_search,
+    rerank_search_result,
 )
 from open_webui.retrieval.vector.async_client import ASYNC_VECTOR_DB_CLIENT
 from open_webui.retrieval.vector.factory import VECTOR_DB_CLIENT
@@ -3023,17 +3024,42 @@ async def query_doc_handler(
                 ),
             )
         else:
+            k = form_data.k if form_data.k else config.TOP_K
+            k_reranker = form_data.k_reranker or config.TOP_K_RERANKER
+            r = form_data.r if form_data.r else config.RELEVANCE_THRESHOLD
+            # Reranking is not hybrid-only: apply the reranker + relevance threshold
+            # to plain vector results whenever a reranking model is configured.
+            reranking_function = (
+                (lambda query, documents: request.app.state.RERANKING_FUNCTION(query, documents, user=user))
+                if request.app.state.RERANKING_FUNCTION
+                else None
+            )
             query_embedding = await request.app.state.EMBEDDING_FUNCTION(
                 form_data.query, prefix=RAG_EMBEDDING_QUERY_PREFIX, user=user
             )
             # query_doc wraps a blocking VECTOR_DB_CLIENT.search call;
             # offload so the request's event loop stays responsive.
-            return await asyncio.to_thread(
+            # Over-fetch when reranking so the reranker has alternatives to choose from.
+            search_result = await asyncio.to_thread(
                 query_doc,
                 collection_name=form_data.collection_name,
                 query_embedding=query_embedding,
-                k=form_data.k if form_data.k else config.TOP_K,
+                k=max(2 * k, k_reranker) if reranking_function else k,
                 user=user,
+            )
+            if reranking_function is None:
+                return search_result
+
+            return await rerank_search_result(
+                query=form_data.query,
+                result=search_result,
+                embedding_function=lambda query, prefix: request.app.state.EMBEDDING_FUNCTION(
+                    query, prefix=prefix, user=user
+                ),
+                reranking_function=reranking_function,
+                k=k,
+                k_reranker=k_reranker,
+                r=r,
             )
     except HTTPException:
         raise

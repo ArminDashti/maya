@@ -1,0 +1,20 @@
+{
+  "content": "  $cols = @((Invoke-RestMethod -Uri \"$QdrantUrl/collections\" -TimeoutSec 15).result.collections |\r\n    ForEach-Object { $_.name })\r\n  if ($cols.Count -eq 1 -and $cols[0] -eq $QdrantCollection) {\r\n    Write-Host \"Qdrant: exactly one collection '$QdrantCollection'\"\r\n  } else {\r\n    Write-Warning (\"Qdrant has \" + $cols.Count + \" collections [\" + ($cols -join \", \") +\r\n      \"]; expected only '$QdrantCollection'. Merge with python scripts/qdrant_merge_collections.py --delete-sources\")\r\n  }\r\n} catch {\r\n  Write-Warning \"Qdrant collection check failed: $($_.Exception.Message)\"\r\n}\r\n\r\n# --- verify: exactly the four public models ---\r\ntry {\r\n  $visible = @(Invoke-Json GET \"$WebUiUrl/api/v1/models\" $auth $null).data | ForEach-Object { $_.id }\r\n  $visible = @($visible)\r\n  # The provider base rows stay active (routing needs them) but are meta.hidden,\r\n  # which is what the model picker filters on - so they are allowed to exist.\r\n  $allowed = @($models | ForEach-Object { $_.Id }) + @($models | ForEach-Object { $_.Base })\r\n  $extra = @($visible | Where-Object { $allowed -notcontains $_ })\r\n  if ($visible.Count -eq 0) {\r\n    Write-Warning \"Model list is empty - provider check failed (connections unreachable?)\"\r\n  } elseif ($extra.Count -gt 0) {\r\n    Write-Warning (\"Unexpected models still visible: \" + ($extra -join \", \"))\r\n  } else {\r\n    Write-Host (\"Visible models (\" + $visible.Count + \"): \" + ($visible -join \", \"))\r\n  }\r\n} catch {\r\n  Write-Warning \"Model visibility check failed: $($_.Exception.Message)\"\r\n}\r\n\r\nWrite-Host \"Done. Models + RAG + skills + users ready.\"\r\nWrite-Host \"  UI: http://maya.local/\"\r\nWrite-Host \"  Path bookmarks: http://pc-armin/maya  http://10.20.9.59/maya  (302 -> http://maya.local/)\"\r\nWrite-Host \"  Models: OpenRouter-Auto, OpenCode-Mimo-v2.6-Flash, OpenCode-DeepSeek-4.1-Flash, OpenCode-GPT-6-Luna\"\r\nWrite-Host \"  RAG: knowledge (.md) attached to every model + ERP rows injected by global filter erp_reports_inject (collection '$QdrantCollection').\"\r\nWrite-Host \"  Vectors: one Qdrant collection only - scripts/qdrant_merge_collections.py merges strays back in.\"\r\n\n\n// [chunk 7 of 7. Call smart_read again with chunkIndex=<n> for another.]",
+  "metadata": {
+    "path": ".armin/rag/sync-maya.ps1",
+    "size": 25888,
+    "encoding": "utf-8",
+    "fileType": "text",
+    "hash": "0a506ce5b425be7bdf210555cc592cebac7b79f65fb8c7f03456f4a05ff80a1e",
+    "fromCache": true,
+    "isDiff": false,
+    "chunked": true,
+    "truncated": false,
+    "tokensSaved": 6728,
+    "tokenCount": 617,
+    "originalTokenCount": 7345,
+    "compressionRatio": 0.08414464534075104,
+    "chunkCount": 7,
+    "chunkIndex": 6
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "content": "# Copy to .env (never commit .env)\r\n\r\n# Host port published by Open WebUI (container listens on 8080)\r\nPUBLISH_PORT=3080\n\r\n# Brand (Open WebUI license appends \" (Open WebUI)\" when not the default name)\r\nWEBUI_NAME=Maya\r\n\r\n# OpenAI-compatible provider = cursor-sdk-to-openai (Admin → Connections).\r\n# Must use Docker DNS from maya-openwebui — NOT localhost.\r\n# Host publish for browsers/tools outside Docker: http://127.0.0.1:8173/v1\r\n# Note: cursor-headless-cli-to-api.local is NOT OpenAI-compatible (/api/v1/runs).\r\nENABLE_OPENAI_API=true\r\nOPENAI_API_BASE_URL=http://cursor-sdk-to-openai-api-1:8140/v1\r\nOPENAI_API_KEY=local\r\nOPENAI_API_CONFIGS={\"0\":{\"enable\":true,\"tags\":[{\"name\":\"cursor-sdk-to-openai\"}],\"connection_type\":\"external\",\"auth_type\":\"bearer\",\"prefix_id\":\"\",\"model_ids\":[\"gemini-3.8-flash\"]}}\r\n\r\n# Dual Ollama: local (host) + LAN server. Prefixes applied at runtime by sync-maya.ps1.\r\nENABLE_OLLAMA_API=true\r\nOLLAMA_BASE_URL=http://host.docker.internal:11434\r\nOLLAMA_BASE_URLS=http://host.docker.internal:11434;http://10.10.16.118:11434\r\n\r\n# Vector DB = Qdrant on Docker (host publish :6333); collections get the \"maya\" prefix.\r\n# ERP access dataset (3738 rows -> 3732 vectors): scripts/qdrant_ingest_erp_reports.py\r\nVECTOR_DB=qdrant\r\nQDRANT_URI=http://host.docker.internal:6333\r\nQDRANT_API_KEY=\r\nQDRANT_COLLECTION_PREFIX=maya\r\nQDRANT_ON_DISK=false\r\n# Persian corpus -> multilingual embedding model (bootstrap default; admin UI value wins)\r\nHF_HUB_OFFLINE=1\r\nRAG_EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2\r\n\r\n# Public URL for links/callbacks. Local http://maya.local; /maya redirects to :3080.\r\nWEBUI_URL=http://maya.local\r\nWEBUI_ADMIN_EMAIL=armin@local\r\nWEBUI_ADMIN_NAME=armin\r\nWEBUI_ADMIN_PASSWORD=123456\r\n# Default = Cursor-Gemini-3.8 (see .armin/rag/sync-maya.ps1)\r\nDEFAULT_MODELS=cursor-gemini-3.8\r\nWEBUI_SECRET_KEY=change-me-maya-local\r\nRAG_RELEVANCE_THRESHOLD=0.4\r\nENABLE_RAG_HYBRID_SEARCH=true\r\nRAG_RERANKING_MODEL=cross-encoder/mmarco-mMiniLMv2-L12-H384-v1\r\nRAG_TOP_K_RERANKER=5\r\nRAG_TOP_K=5\r\n",
+  "metadata": {
+    "path": "C:\\Users\\armin\\GitHub\\maya\\.env",
+    "size": 2052,
+    "encoding": "utf-8",
+    "fileType": "text",
+    "hash": "fbbbd896c50acd38434b7ff9645a9d689902c7b3a3662cd32d2d3416ef49c1b2",
+    "fromCache": false,
+    "isDiff": false,
+    "chunked": false,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 609,
+    "originalTokenCount": 609,
+    "compressionRatio": 1
+  }
+}

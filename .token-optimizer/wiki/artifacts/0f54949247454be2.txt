@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "pattern": "backend/open_webui/routers/skills.py",
+  "metadata": {
+    "totalMatches": 1,
+    "returnedCount": 1,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 13,
+    "originalTokenCount": 13,
+    "compressionRatio": 1,
+    "duration": 11,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized glob response was materialized; caller-requested pagination is not optimizer-created savings."
+  },
+  "files": [
+    "backend\\open_webui\\routers\\skills.py"
+  ]
+}

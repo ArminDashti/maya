@@ -3,13 +3,15 @@ title: ERP Reports Vector Inject
 author: Armin Dashti
 version: 1.0.0
 required_open_webui_version: 0.11.0
-description: Global inlet — rewrite user text, search Qdrant erp_reports, inject candidates (no tool call).
+description: Global inlet — rewrite user text, search the single Qdrant collection (maya), inject ERP candidates (no tool call).
 """
 
 # Runs on every chat when this filter is active + global. Models never need
 # function calling: candidates land in messages before the LLM sees the turn.
 #
-# Collection erp_reports is standalone (no maya_ prefix). Embedding must match
+# Maya keeps ONE Qdrant collection ("maya"): knowledge .md chunks, file chunks
+# and the ERP rows share it, separated by payload tenant_id. This filter reads
+# only the ERP tenant (tenant_id = "erp_reports"). Embedding must match
 # scripts/qdrant_ingest_erp_reports.py / the chat RAG model (384-d cosine).
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ from pydantic import BaseModel, Field
 
 log = logging.getLogger(__name__)
 
-_MARKER = "### ERP vector candidates (collection erp_reports)"
+_MARKER = "### ERP vector candidates (collection maya)"
 
 # Leading chitchat / politeness that hurts embedding match.
 _LEADING_FILLER = re.compile(
@@ -83,18 +85,19 @@ def _last_user_text(messages: list) -> str:
     return ""
 
 
-def _dedupe_hits(hits: list) -> list[tuple[str, str, float]]:
-    seen: set[tuple[str, str]] = set()
-    rows: list[tuple[str, str, float]] = []
+def _dedupe_hits(hits: list) -> list[tuple[str, str, str]]:
+    seen: set[tuple[str, str, str]] = set()
+    rows: list[tuple[str, str, str]] = []
     for hit in hits:
         payload = hit.get("payload") or {}
         name = str(payload.get("NameSystem") or "").strip() or "?"
         parent = str(payload.get("ParentSystemtxt") or "").strip() or "?"
-        key = (name, parent)
+        url = str(payload.get("URL") or "").strip()
+        key = (name, parent, url)
         if key in seen:
             continue
         seen.add(key)
-        rows.append((name, parent, float(hit.get("score") or 0)))
+        rows.append((name, parent, url))
     return rows
 
 
@@ -102,7 +105,7 @@ def _escape_cell(value: str) -> str:
     return value.replace("|", "\\|").replace("\n", " ")
 
 
-def _candidate_block(vector_query: str, rows: list[tuple[str, str, float]], note: str = "") -> str:
+def _candidate_block(vector_query: str, rows: list[tuple[str, str, str]], note: str = "") -> str:
     lines = [
         _MARKER,
         f'Vector query: "{vector_query}"',
@@ -110,17 +113,19 @@ def _candidate_block(vector_query: str, rows: list[tuple[str, str, float]], note
     if note:
         lines.append(note)
     if rows:
-        lines.append("| NameSystem | ParentSystemtxt | score |")
+        lines.append("| NameSystem | ParentSystemtxt | URL |")
         lines.append("| --- | --- | --- |")
-        for name, parent, score in rows:
-            lines.append(
-                f"| {_escape_cell(name)} | {_escape_cell(parent)} | {score:.3f} |"
-            )
+        for name, parent, url in rows:
+            lines.append(f"| {_escape_cell(name)} | {_escape_cell(parent)} | {_escape_cell(url)} |")
     else:
-        lines.append("No matching rows in erp_reports.")
+        lines.append("No matching rows in the ERP vector set.")
     lines.append(
         "Use only these rows. Select all relevant. "
-        "Final answer = markdown table with columns NameSystem, ParentSystemtxt only."
+        "Final answer = Markdown table with exactly three columns: "
+        "نام گزارش, آدرس در صفحه وب, URL. Use NameSystem as the report name, "
+        "ParentSystemtxt as the webpage address, and the stored URL as its link. "
+        "Do not invent or reconstruct URLs. Do not include employee data. "
+        "If ParentSystemtxt is missing, show آدرس موجود نیست."
     )
     return "\n".join(lines)
 
@@ -129,7 +134,8 @@ class Filter:
     class Valves(BaseModel):
         priority: int = Field(default=0, description="Lower runs earlier among filters.")
         qdrant_url: str = "http://host.docker.internal:6333"
-        collection: str = "erp_reports"
+        collection: str = "maya"
+        tenant: str = "erp_reports"
         embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
         cache_folder: str = "/app/backend/data/cache/embedding/models"
         default_top_k: int = 12
@@ -156,7 +162,16 @@ class Filter:
     def _search(self, vector: list, limit: int) -> list:
         response = requests.post(
             f"{self.valves.qdrant_url.rstrip('/')}/collections/{self.valves.collection}/points/search",
-            json={"vector": vector, "limit": limit, "with_payload": True},
+            json={
+                "vector": vector,
+                "limit": limit,
+                "with_payload": True,
+                # One collection for everything: stay inside the ERP tenant so
+                # knowledge .md chunks never show up as report rows.
+                "filter": {
+                    "must": [{"key": "tenant_id", "match": {"value": self.valves.tenant}}]
+                },
+            },
             timeout=30,
         )
         response.raise_for_status()

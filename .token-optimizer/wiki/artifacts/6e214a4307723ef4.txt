@@ -1,0 +1,51 @@
+{
+  "success": true,
+  "pattern": "@router.(delete|post)",
+  "metadata": {
+    "totalMatches": 5,
+    "filesSearched": 1,
+    "filesWithMatches": 1,
+    "returnedMatches": 5,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 181,
+    "originalTokenCount": 181,
+    "compressionRatio": 1,
+    "duration": 59,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized grep response was materialized; repository bytes scanned are not model-context tokens."
+  },
+  "matches": [
+    {
+      "file": "skills.py",
+      "lineNumber": 151,
+      "line": "@router.post('/create', response_model=Optional[SkillResponse])",
+      "match": "@router.post"
+    },
+    {
+      "file": "skills.py",
+      "lineNumber": 274,
+      "line": "@router.post('/id/{id}/update', response_model=Optional[SkillModel])",
+      "match": "@router.post"
+    },
+    {
+      "file": "skills.py",
+      "lineNumber": 357,
+      "line": "@router.post('/id/{id}/access/update', response_model=Optional[SkillModel])",
+      "match": "@router.post"
+    },
+    {
+      "file": "skills.py",
+      "lineNumber": 414,
+      "line": "@router.post('/id/{id}/toggle', response_model=Optional[SkillModel])",
+      "match": "@router.post"
+    },
+    {
+      "file": "skills.py",
+      "lineNumber": 467,
+      "line": "@router.delete('/id/{id}/delete', response_model=bool)",
+      "match": "@router.delete"
+    }
+  ]
+}

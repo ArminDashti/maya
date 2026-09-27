@@ -1,0 +1,27 @@
+{
+  "success": true,
+  "pattern": "FullNamePersonel",
+  "metadata": {
+    "totalMatches": 1,
+    "filesSearched": 299,
+    "filesWithMatches": 1,
+    "returnedMatches": 1,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 38,
+    "originalTokenCount": 38,
+    "compressionRatio": 1,
+    "duration": 1822,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized grep response was materialized; repository bytes scanned are not model-context tokens."
+  },
+  "matches": [
+    {
+      "file": "scripts\\qdrant_merge_collections.py",
+      "lineNumber": 91,
+      "line": "        payload.pop('FullNamePersonel', None)",
+      "match": "FullNamePersonel"
+    }
+  ]
+}

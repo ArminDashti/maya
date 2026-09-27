@@ -1,0 +1,177 @@
+{
+  "success": true,
+  "pattern": "FullNamePersonel",
+  "metadata": {
+    "totalMatches": 13,
+    "filesSearched": 311,
+    "filesWithMatches": 4,
+    "returnedMatches": 13,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 907,
+    "originalTokenCount": 907,
+    "compressionRatio": 1,
+    "duration": 7204,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized grep response was materialized; repository bytes scanned are not model-context tokens."
+  },
+  "matches": [
+    {
+      "file": "scripts\\qdrant_merge_collections.py",
+      "lineNumber": 32,
+      "line": "# the ERP rows only carry NameSystem/ParentSystemtxt/FullNamePersonel. The merge",
+      "match": "FullNamePersonel",
+      "before": [
+        "# Open WebUI reads payload['text'] / payload['metadata'] from every point, while"
+      ],
+      "after": [
+        "# adds the two missing keys so both readers work on the merged collection."
+      ]
+    },
+    {
+      "file": "scripts\\qdrant_merge_collections.py",
+      "lineNumber": 34,
+      "line": "TEXT_FIELDS = ('NameSystem', 'ParentSystemtxt', 'FullNamePersonel')",
+      "match": "FullNamePersonel",
+      "before": [
+        "# adds the two missing keys so both readers work on the merged collection."
+      ],
+      "after": [
+        ""
+      ]
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 12,
+      "line": "* ``FullNamePersonel`` - employee the access row belongs to",
+      "match": "FullNamePersonel",
+      "before": [
+        "* ``ParentSystemtxt``  - full menu path of the report inside the ERP tree"
+      ],
+      "after": [
+        ""
+      ]
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 37,
+      "line": "FIELDS = (\"NameSystem\", \"ParentSystemtxt\", \"FullNamePersonel\")",
+      "match": "FullNamePersonel",
+      "before": [
+        ""
+      ],
+      "after": [
+        "# Maya keeps ONE Qdrant collection (see scripts/qdrant_merge_collections.py):"
+      ]
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 223,
+      "line": "    # One point per distinct (NameSystem, ParentSystemtxt, FullNamePersonel) triple.",
+      "match": "FullNamePersonel",
+      "before": [
+        ""
+      ],
+      "after": [
+        "    unique: dict[str, dict] = {}"
+      ]
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 269,
+      "line": "    client.create_keyword_index(\"FullNamePersonel\")",
+      "match": "FullNamePersonel",
+      "before": [
+        ""
+      ],
+      "after": [
+        "    print(\"payload index: FullNamePersonel (keyword)\", flush=True)"
+      ]
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 270,
+      "line": "    print(\"payload index: FullNamePersonel (keyword)\", flush=True)",
+      "match": "FullNamePersonel",
+      "before": [
+        "    client.create_keyword_index(\"FullNamePersonel\")"
+      ],
+      "after": [
+        "    client.create_keyword_index(\"tenant_id\")"
+      ]
+    },
+    {
+      "file": "scripts\\qdrant_ingest_erp_reports.py",
+      "lineNumber": 298,
+      "line": "                print(f\"  score={hit.get('score', 0):.4f} :: {payload.get('FullNamePersonel')}\"",
+      "match": "FullNamePersonel",
+      "before": [
+        "                payload = hit.get(\"payload\", {})"
+      ],
+      "after": [
+        "                      f\" :: {payload.get('NameSystem')}\")"
+      ]
+    },
+    {
+      "file": "scripts\\generate_reports_access_md.py",
+      "lineNumber": 13,
+      "line": "Only ``NameSystem``, ``ParentSystemtxt`` and ``FullNamePersonel`` are used; the decorative",
+      "match": "FullNamePersonel",
+      "before": [
+        ""
+      ],
+      "after": [
+        "kashida (U+0640) padding inside the ERP menu paths is removed for readability."
+      ]
+    },
+    {
+      "file": "scripts\\generate_reports_access_md.py",
+      "lineNumber": 30,
+      "line": "FIELDS = (\"NameSystem\", \"ParentSystemtxt\", \"FullNamePersonel\")",
+      "match": "FullNamePersonel",
+      "before": [
+        ""
+      ],
+      "after": [
+        ""
+      ]
+    },
+    {
+      "file": "scripts\\generate_reports_access_md.py",
+      "lineNumber": 63,
+      "line": "        person = clean(str(record.get(\"FullNamePersonel\", \"\")))",
+      "match": "FullNamePersonel",
+      "before": [
+        "        path = menu_path(str(record.get(\"ParentSystemtxt\", \"\")))"
+      ],
+      "after": [
+        "        if not (name or path or person):"
+      ]
+    },
+    {
+      "file": ".armin\\rag\\tools\\qdrant_erp_search.py",
+      "lineNumber": 15,
+      "line": "# Payload per point: NameSystem, ParentSystemtxt, FullNamePersonel.",
+      "match": "FullNamePersonel",
+      "before": [
+        "# file chunks and these ERP rows share it, split by tenant_id."
+      ],
+      "after": [
+        "#"
+      ]
+    },
+    {
+      "file": ".armin\\rag\\tools\\qdrant_erp_search.py",
+      "lineNumber": 91,
+      "line": "            must.append({\"key\": \"FullNamePersonel\", \"match\": {\"value\": _normalize(person)}})",
+      "match": "FullNamePersonel",
+      "before": [
+        "        if person:"
+      ],
+      "after": [
+        "        body[\"filter\"] = {\"must\": must}"
+      ]
+    }
+  ]
+}

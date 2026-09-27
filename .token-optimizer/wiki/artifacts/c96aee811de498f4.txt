@@ -1,0 +1,49 @@
+{
+  "success": true,
+  "pattern": "**/*erp*report*",
+  "metadata": {
+    "totalMatches": 3,
+    "returnedCount": 3,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 297,
+    "originalTokenCount": 297,
+    "compressionRatio": 1,
+    "duration": 129,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized glob response was materialized; caller-requested pagination is not optimizer-created savings."
+  },
+  "files": [
+    {
+      "path": "C:\\Users\\armin\\GitHub\\maya\\.armin\\rag\\filters\\__pycache__\\erp_reports_inject.cpython-312.pyc",
+      "relativePath": ".armin\\rag\\filters\\__pycache__\\erp_reports_inject.cpython-312.pyc",
+      "name": "erp_reports_inject.cpython-312.pyc",
+      "extension": ".pyc",
+      "size": 11359,
+      "modified": "2026-09-27T10:35:21.685Z",
+      "type": "file",
+      "fileType": "text"
+    },
+    {
+      "path": "C:\\Users\\armin\\GitHub\\maya\\.armin\\rag\\filters\\erp_reports_inject.py",
+      "relativePath": ".armin\\rag\\filters\\erp_reports_inject.py",
+      "name": "erp_reports_inject.py",
+      "extension": ".py",
+      "size": 8804,
+      "modified": "2026-09-27T10:34:19.291Z",
+      "type": "file",
+      "fileType": "python"
+    },
+    {
+      "path": "C:\\Users\\armin\\GitHub\\maya\\scripts\\qdrant_ingest_erp_reports.py",
+      "relativePath": "scripts\\qdrant_ingest_erp_reports.py",
+      "name": "qdrant_ingest_erp_reports.py",
+      "extension": ".py",
+      "size": 12790,
+      "modified": "2026-09-27T09:43:40.550Z",
+      "type": "file",
+      "fileType": "python"
+    }
+  ]
+}

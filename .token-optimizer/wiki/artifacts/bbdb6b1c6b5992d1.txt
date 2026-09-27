@@ -1,0 +1,20 @@
+{
+  "content": "        Search the ERP report-access vector database when the platform exposes this\n        tool. Prefer any Qdrant/knowledge context already injected into the chat turn;\n        that retrieval already counts as the vector search. Use this tool for\n        who-can-access questions when available, then open reports-access-*.md /\n        reports-index.md / reports.md to confirm details.\n        Persian and English queries both work; the search is semantic (embedding\n        similarity), so partial titles and plain-language descriptions are fine.\n\n        :param query: What to look for, e.g. \"لیست دریافت و پرداخت\" or \"warehouse count report\".\n        :param person: Optional employee full name to restrict the results to that person's access rows.\n        :param top_k: How many rows to return (default from tool settings).\n        :return: Persian Markdown table with report name and linked page address.\n        \"\"\"\n        limit = int(top_k) if top_k else int(self.valves.default_top_k)\n        try:\n            hits = self._search(self._embed(query), max(1, min(limit, 50)), person)\n        except Exception as error:  # never break the chat turn on a backend hiccup\n            log.exception(\"qdrant search failed\")\n            return f\"Qdrant search failed: {error}\"\n\n        if not hits:\n            return \"No matching report-access rows found in the vector database.\"\n\n        lines = [\"| نام گزارش | آدرس صفحه |\", \"| --- | --- |\"]\n        for hit in hits:\n            payload = hit.get(\"payload\") or {}\n            name = _escape_markdown_cell(str(payload.get(\"NameSystem\") or \"؟\").strip())\n            parent = str(payload.get(\"ParentSystemtxt\") or \"\").strip()\n            lines.append(\n                f\"| {name} | {_report_link(parent)} |\"\n            )\n        return \"\\n\".join(lines)\n\n\n// [chunk 2 of 2. Call smart_read again with chunkIndex=<n> for another.]",
+  "metadata": {
+    "path": "C:\\Users\\armin\\GitHub\\maya\\.armin\\rag\\tools\\qdrant_erp_search.py",
+    "size": 5827,
+    "encoding": "utf-8",
+    "fileType": "python",
+    "hash": "b0bc28b667863ccbf78571609b6502902781a1a8ea7c23f46a7938a3c4cf8308",
+    "fromCache": true,
+    "isDiff": false,
+    "chunked": true,
+    "truncated": false,
+    "tokensSaved": 966,
+    "tokenCount": 430,
+    "originalTokenCount": 1396,
+    "compressionRatio": 0.32570636158779687,
+    "chunkCount": 2,
+    "chunkIndex": 1
+  }
+}

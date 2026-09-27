@@ -1,0 +1,165 @@
+{
+  "success": true,
+  "pattern": "reports-access-by-menu.md",
+  "metadata": {
+    "totalMatches": 12,
+    "filesSearched": 5134,
+    "filesWithMatches": 10,
+    "returnedMatches": 12,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 3469,
+    "originalTokenCount": 3469,
+    "compressionRatio": 1,
+    "duration": 7299,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized grep response was materialized; repository bytes scanned are not model-context tokens."
+  },
+  "matches": [
+    {
+      "file": "scripts\\sync_maya_reports_access.py",
+      "lineNumber": 41,
+      "line": "    \"reports-access-by-menu.md\",",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "    \"reports-access-index.md\","
+      ],
+      "after": [
+        "    \"reports-access-by-personnel.md\","
+      ]
+    },
+    {
+      "file": "scripts\\generate_reports_access_md.py",
+      "lineNumber": 10,
+      "line": "* ``reports-access-by-menu.md``      - full data grouped by ERP menu path",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "* ``reports-access-index.md``        - compact catalog: report title -> menu path -> access count"
+      ],
+      "after": [
+        "* ``reports-access-by-personnel.md`` - full data grouped by employee"
+      ]
+    },
+    {
+      "file": "scripts\\generate_reports_access_md.py",
+      "lineNumber": 150,
+      "line": "        (\"reports-access-by-menu.md\", menu_lines),",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "        (\"reports-access-index.md\", index_lines),"
+      ],
+      "after": [
+        "        (\"reports-access-by-personnel.md\", person_lines),"
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 54,
+      "line": "{\"schemaVersion\":2,\"id\":\"1i-e0228f6e\",\"kind\":\"capture\",\"ref\":\"a8f2d9ae6e990060\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":235,\"bytes\":2469,\"anchors\":[\"C:/Users/armin/GitHub/maya/.armin/rag/generated/reports-access/reports-access-by-menu.md\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\"C:/Users/armin/GitHub/maya/.armin/rag/generated/reports-access/reports-access-by-menu.md\",\"hash\":\"6406f7b1695936c0\"}],\"at\":1790507557320}",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "{\"schemaVersion\":2,\"id\":\"1h-6847efe6\",\"kind\":\"capture\",\"ref\":\"f60c1f56aa2c0d9b\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":414,\"bytes\":4600,\"anchors\":[\"C:/Users/armin/GitHub/maya/.armin/rag/generated/reports-access/reports-access-index.md\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\"C:/Users/armin/GitHub/maya/.armin/rag/generated/reports-access/reports-access-index.md\",\"hash\":\"40b609f01762bd71\"}],\"at\":1790507557311}"
+      ],
+      "after": [
+        "{\"schemaVersion\":2,\"id\":\"1j-bc622c57\",\"episodeId\":\"mcp-25812-mujh28sj\",\"sessionId\":\"mcp-25812-mujh28sj\",\"arm\":\"full\",\"client\":\"cli\",\"clientVersion\":\"2.0.9\",\"kind\":\"mcp-tool\",\"toolName\":\"smart_read\",\"durationMs\":448,\"success\":true,\"at\":1790507557443}"
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\metrics.jsonl",
+      "lineNumber": 54,
+      "line": "{\"schemaVersion\":2,\"id\":\"1i-e0228f6e\",\"kind\":\"capture\",\"ref\":\"a8f2d9ae6e990060\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":235,\"bytes\":2469,\"anchors\":[\"C:/Users/armin/GitHub/maya/.armin/rag/generated/reports-access/reports-access-by-menu.md\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\"C:/Users/armin/GitHub/maya/.armin/rag/generated/reports-access/reports-access-by-menu.md\",\"hash\":\"6406f7b1695936c0\"}],\"at\":1790507557320}",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "{\"schemaVersion\":2,\"id\":\"1h-6847efe6\",\"kind\":\"capture\",\"ref\":\"f60c1f56aa2c0d9b\",\"tool\":\"smart_read\",\"command\":null,\"shape\":\"json\",\"costMs\":414,\"bytes\":4600,\"anchors\":[\"C:/Users/armin/GitHub/maya/.armin/rag/generated/reports-access/reports-access-index.md\"],\"sessionId\":\"mcp-25812-mujh28si\",\"anchorHashes\":[{\"anchor\":\"C:/Users/armin/GitHub/maya/.armin/rag/generated/reports-access/reports-access-index.md\",\"hash\":\"40b609f01762bd71\"}],\"at\":1790507557311}"
+      ],
+      "after": [
+        "{\"schemaVersion\":2,\"id\":\"1j-bc622c57\",\"episodeId\":\"mcp-25812-mujh28sj\",\"sessionId\":\"mcp-25812-mujh28sj\",\"arm\":\"full\",\"client\":\"cli\",\"clientVersion\":\"2.0.9\",\"kind\":\"mcp-tool\",\"toolName\":\"smart_read\",\"durationMs\":448,\"success\":true,\"at\":1790507557443}"
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\acd4806ddecf9f4f.txt",
+      "lineNumber": 20,
+      "line": "    \".armin\\\\rag\\\\generated\\\\reports-access\\\\reports-access-by-menu.md\",",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "    \".armin\\\\rag\\\\filters\\\\erp_reports_inject.py\","
+      ],
+      "after": [
+        "    \".armin\\\\rag\\\\generated\\\\reports-access\\\\reports-access-by-personnel.md\","
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\a8f2d9ae6e990060.txt",
+      "lineNumber": 4,
+      "line": "    \"path\": \"C:\\\\Users\\\\armin\\\\GitHub\\\\maya\\\\.armin\\\\rag\\\\generated\\\\reports-access\\\\reports-access-by-menu.md\",",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "  \"metadata\": {"
+      ],
+      "after": [
+        "    \"size\": 270364,"
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\9e94774bbeaef769.txt",
+      "lineNumber": 2,
+      "line": "  \"content\": \"#!/usr/bin/env python3\\n\\\"\\\"\\\"Generate RAG-ready Markdown from the ERP report-access dataset.\\n\\nInput : ``rep_converted.deduped.json`` (host copy on the Desktop)\\nOutput: ``.armin/rag/generated/reports-access/``\\n\\nFiles produced (all plain Markdown, no front-matter so any RAG chunker can split them):\\n\\n* ``reports-access-index.md``        - compact catalog: report title -> menu path -> access count\\n* ``reports-access-by-menu.md``      - full data grouped by ERP menu path\\n* ``reports-access-by-personnel.md`` - full data grouped by employee\\n\\nOnly ``NameSystem``, ``ParentSystemtxt`` and ``FullNamePersonel`` are used; the decorative\\nkashida (U+0640) padding inside the ERP menu paths is removed for readability.\\n\\nUsage::\\n\\n    python scripts/generate_reports_access_md.py \\\\\\n        --json \\\"C:/Users/armin/Desktop/rep_converted.deduped.json\\\" \\\\\\n        --out \\\".armin/rag/generated/reports-access\\\"\\n\\\"\\\"\\\"\\n\\nfrom __future__ import annotations\\n\\nimport argparse\\nimport json\\nimport os\\nfrom collections import Counter, defaultdict\\n\\nFIELDS = (\\\"NameSystem\\\", \\\"ParentSystemtxt\\\", \\\"FullNamePersonel\\\")\\n\\n\\ndef clean(text: str) -> str:\\n    \\\"\\\"\\\"Drop kashida padding / zero-width marks and collapse whitespace.\\\"\\\"\\\"\\n    if not text:\\n        return \\\"\\\"\\n    out = text.replace(\\\"\\\\u0640\\\", \\\"\\\")\\n    out = out.replace(\\\"\\\\u200c\\\", \\\" \\\").replace(\\\"\\\\u200f\\\", \\\"\\\").replace(\\\"\\\\u200e\\\", \\\"\\\")\\n    return \\\" \\\".join(out.split())\\n\\n\\ndef menu_path(parent: str) -> str:\\n    \\\"\\\"\\\"``الف---ب---ج`` -> ``الف › ب › ج`` (readable for the LLM and for humans).\\\"\\\"\\\"\\n    parts = [clean(part) for part in clean(parent).split(\\\"---\\\")]\\n    return \\\" \\\\u203a \\\".join(part for part in parts if part)\\n\\n\\ndef main() -> int:\\n    parser = argparse.ArgumentParser(description=__doc__)\\n    parser.add_argument(\\\"--json\\\", required=True)\\n    parser.add_argument(\\\"--out\\\", required=True)\\n    parser.add_argument(\\\"--source-label\\\", default=\\\"rep_converted.deduped.json\\...",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "{"
+      ],
+      "after": [
+        "  \"metadata\": {"
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\74101a1694ccb05b.txt",
+      "lineNumber": 2,
+      "line": "  \"content\": \"    for path in sorted(by_menu, key=lambda value: (value.count(\\\"\\\\u203a\\\"), value)):\\n        entries = by_menu[path]\\n        menu_lines += [\\n            f\\\"## {path or '(no menu path)'}\\\",\\n            \\\"\\\",\\n            f\\\"Reports: **{len({name for name, _ in entries})}** &middot; access rows: {len(entries)}.\\\",\\n            \\\"\\\",\\n            \\\"| Report (NameSystem) | Employees with access |\\\",\\n            \\\"|---------------------|-----------------------|\\\",\\n        ]\\n        per_name: dict[str, set[str]] = defaultdict(set)\\n        for name, person in entries:\\n            per_name[name].add(person)\\n        for name in sorted(per_name):\\n            people = \\\", \\\".join(sorted(per_name[name]))\\n            menu_lines.append(f\\\"| {name} | {people} |\\\")\\n        menu_lines.append(\\\"\\\")\\n\\n    # --- by employee -----------------------------------------------------------\\n    by_person: dict[str, Counter] = defaultdict(Counter)\\n    for name, path, person in rows:\\n        by_person[person][path] += 1\\n\\n    person_lines = [\\\"# ERP Report Access by Employee\\\", \\\"\\\", header_note, \\\"\\\"]\\n    for person in sorted(by_person):\\n        counter = by_person[person]\\n        person_lines += [\\n            f\\\"## {person}\\\",\\n            \\\"\\\",\\n            f\\\"Reachable reports: **{sum(counter.values())}** across {len(counter)} menu paths.\\\",\\n            \\\"\\\",\\n            \\\"| Menu path | Reports |\\\",\\n            \\\"|-----------|---------|\\\",\\n        ]\\n        for path, count in sorted(counter.items(), key=lambda item: (-item[1], item[0])):\\n            person_lines.append(f\\\"| {path or '(no menu path)'} | {count} |\\\")\\n        person_lines.append(\\\"\\\")\\n\\n    written = {}\\n    for filename, lines in (\\n        (\\\"reports-access-index.md\\\", index_lines),\\n        (\\\"reports-access-by-menu.md\\\", menu_lines),\\n        (\\\"reports-access-by-personnel.md\\\", person_lines),\\n    ):\\n        target = os.path.join(args.out, filename)\\n        with open(target, \\...",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "{"
+      ],
+      "after": [
+        "  \"metadata\": {"
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\61b367002f0245d2.txt",
+      "lineNumber": 24,
+      "line": "    \".armin\\\\rag\\\\generated\\\\reports-access\\\\reports-access-by-menu.md\",",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "    \".armin\\\\logs\\\\human-prompt\\\\03-why-model-empty-not-found.md\","
+      ],
+      "after": [
+        "    \".armin\\\\rag\\\\generated\\\\reports-access\\\\reports-access-by-personnel.md\","
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\5dc4d8f981091679.txt",
+      "lineNumber": 2,
+      "line": "  \"content\": \"#!/usr/bin/env python3\\n\\\"\\\"\\\"Wire the ERP report-access RAG into Maya: markdown knowledge + Qdrant tool + global filter.\\n\\nCompanion to\\n\\n* ``scripts/generate_reports_access_md.py``  (markdown from rep_converted.deduped.json)\\n* ``scripts/qdrant_ingest_erp_reports.py``   (vectors into Maya's single Qdrant collection ``maya``, tenant ``erp_reports``)\\n\\nWhat this script does, in order:\\n\\n1. signs in to Maya (Open WebUI admin),\\n2. ensures the knowledge collection ``ERP Reports Access`` exists,\\n3. uploads/refreshes ``.armin/rag/generated/reports-access/*.md`` and links them to it\\n   (re-uploading is what re-embeds them into Qdrant, so never skip it after regenerating),\\n4. creates/updates the tool ``qdrant_erp_search`` from ``.armin/rag/tools/qdrant_erp_search.py``,\\n5. creates/updates the global filter ``erp_reports_inject`` (inlet searches the ``erp_reports``\\n   tenant of the shared ``maya`` collection for every chat model — no tool call required),\\n6. attaches knowledge + tool to every model that already carries shared ``ERP Reports``\\n   (OpenRouter models still skip the tool; the global filter covers them).\\n\\nUsage::\\n\\n    python scripts/sync_maya_reports_access.py                 # full sync\\n    python scripts/sync_maya_reports_access.py --skip-uploads  # only tool/filter + model wiring\\n\\\"\\\"\\\"\\n\\nfrom __future__ import annotations\\n\\nimport argparse\\nimport json\\nimport os\\nimport sys\\nimport time\\nimport urllib.error\\nimport urllib.parse\\nimport urllib.request\\nimport uuid\\n\\nMD_FILES = (\\n    \\\"reports-access-index.md\\\",\\n    \\\"reports-access-by-menu.md\\\",\\n    \\\"reports-access-by-personnel.md\\\",\\n)\\n\\n\\nclass Maya:\\n    def __init__(self, base: str, email: str, password: str):\\n        self.base = base.rstrip(\\\"/\\\")\\n        self.email = email\\n        self.password = password\\n        self.token = None\\n\\n    # --- plumbing -----------------------------------------------------------\\n    def call(self, method: str, path: str, payload...",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "{"
+      ],
+      "after": [
+        "  \"metadata\": {"
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\276febf18aca0ff3.txt",
+      "lineNumber": 20,
+      "line": "    \".armin\\\\rag\\\\generated\\\\reports-access\\\\reports-access-by-menu.md\",",
+      "match": "reports-access-by-menu.md",
+      "before": [
+        "    \".armin\\\\rag\\\\filters\\\\erp_reports_inject.py\","
+      ],
+      "after": [
+        "    \".armin\\\\rag\\\\generated\\\\reports-access\\\\reports-access-by-personnel.md\","
+      ]
+    }
+  ]
+}

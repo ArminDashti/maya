@@ -1,0 +1,141 @@
+{
+  "success": true,
+  "pattern": "exactly three Persian columns|رئیسم، آرمین|به کمک بیشتری نیاز دارید|ERP report-finding and report-access scope",
+  "metadata": {
+    "totalMatches": 10,
+    "filesSearched": 1,
+    "filesWithMatches": 1,
+    "returnedMatches": 10,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 2487,
+    "originalTokenCount": 2487,
+    "compressionRatio": 1,
+    "duration": 22,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized grep response was materialized; repository bytes scanned are not model-context tokens."
+  },
+  "matches": [
+    {
+      "file": "sync-maya.ps1",
+      "lineNumber": 58,
+      "line": "5) Reply with a Markdown table with exactly three Persian columns: نام گزارش, آدرس در صفحه, and پیوند.",
+      "match": "exactly three Persian columns",
+      "before": [
+        "4) All user-facing messages must be in Persian. Preserve report names, page paths, and URLs as provided by the source."
+      ],
+      "after": [
+        "   Use NameSystem as the report name and ParentSystemtxt as the page path/address. Put a clickable Persian link in پیوند using http://erp.dpdc.co:8880/<URL-encoded-ParentSystemtxt>, preserving / and - in the URL path. If ParentSystemtxt is missing, show آدرس موجود نیست and provide no link. Do not include score or employee."
+      ]
+    },
+    {
+      "file": "sync-maya.ps1",
+      "lineNumber": 60,
+      "line": "6) Only answer within ERP report-finding and report-access scope. For unrelated requests, do not answer the topic; reply in Persian: «متأسفم، نمی‌توانم درباره این موضوع پاسخ بدهم؛ رئیسم، آرمین، اجازه نمی‌دهد، هرچند اطلاعات زیادی دارم.»",
+      "match": "ERP report-finding and report-access scope",
+      "before": [
+        "   Use NameSystem as the report name and ParentSystemtxt as the page path/address. Put a clickable Persian link in پیوند using http://erp.dpdc.co:8880/<URL-encoded-ParentSystemtxt>, preserving / and - in the URL path. If ParentSystemtxt is missing, show آدرس موجود نیست and provide no link. Do not include score or employee."
+      ],
+      "after": [
+        "7) End every report response, including no-match responses, with «{نام کاربر} عزیز، آیا به کمک بیشتری نیاز دارید؟». Use the user's name from the conversation/profile when available; never guess a name. If unavailable, ask «آیا به کمک بیشتری نیاز دارید؟»."
+      ]
+    },
+    {
+      "file": "sync-maya.ps1",
+      "lineNumber": 60,
+      "line": "6) Only answer within ERP report-finding and report-access scope. For unrelated requests, do not answer the topic; reply in Persian: «متأسفم، نمی‌توانم درباره این موضوع پاسخ بدهم؛ رئیسم، آرمین، اجازه نمی‌دهد، هرچند اطلاعات زیادی دارم.»",
+      "match": "رئیسم، آرمین",
+      "before": [
+        "   Use NameSystem as the report name and ParentSystemtxt as the page path/address. Put a clickable Persian link in پیوند using http://erp.dpdc.co:8880/<URL-encoded-ParentSystemtxt>, preserving / and - in the URL path. If ParentSystemtxt is missing, show آدرس موجود نیست and provide no link. Do not include score or employee."
+      ],
+      "after": [
+        "7) End every report response, including no-match responses, with «{نام کاربر} عزیز، آیا به کمک بیشتری نیاز دارید؟». Use the user's name from the conversation/profile when available; never guess a name. If unavailable, ask «آیا به کمک بیشتری نیاز دارید؟»."
+      ]
+    },
+    {
+      "file": "sync-maya.ps1",
+      "lineNumber": 61,
+      "line": "7) End every report response, including no-match responses, with «{نام کاربر} عزیز، آیا به کمک بیشتری نیاز دارید؟». Use the user's name from the conversation/profile when available; never guess a name. If unavailable, ask «آیا به کمک بیشتری نیاز دارید؟».",
+      "match": "به کمک بیشتری نیاز دارید",
+      "before": [
+        "6) Only answer within ERP report-finding and report-access scope. For unrelated requests, do not answer the topic; reply in Persian: «متأسفم، نمی‌توانم درباره این موضوع پاسخ بدهم؛ رئیسم، آرمین، اجازه نمی‌دهد، هرچند اطلاعات زیادی دارم.»"
+      ],
+      "after": [
+        "Optional: tool search_erp_report_access or reports-access-*.md / reports-index.md / reports.md only to confirm details when present — never invent rows. If neither candidates nor context exist, say so in Persian."
+      ]
+    },
+    {
+      "file": "sync-maya.ps1",
+      "lineNumber": 61,
+      "line": "7) End every report response, including no-match responses, with «{نام کاربر} عزیز، آیا به کمک بیشتری نیاز دارید؟». Use the user's name from the conversation/profile when available; never guess a name. If unavailable, ask «آیا به کمک بیشتری نیاز دارید؟».",
+      "match": "به کمک بیشتری نیاز دارید",
+      "before": [
+        "6) Only answer within ERP report-finding and report-access scope. For unrelated requests, do not answer the topic; reply in Persian: «متأسفم، نمی‌توانم درباره این موضوع پاسخ بدهم؛ رئیسم، آرمین، اجازه نمی‌دهد، هرچند اطلاعات زیادی دارم.»"
+      ],
+      "after": [
+        "Optional: tool search_erp_report_access or reports-access-*.md / reports-index.md / reports.md only to confirm details when present — never invent rows. If neither candidates nor context exist, say so in Persian."
+      ]
+    },
+    {
+      "file": "sync-maya.ps1",
+      "lineNumber": 103,
+      "line": "6. Only answer within ERP report-finding and report-access scope. For unrelated requests, do not answer the topic; reply in Persian: «متأسفم، نمی‌توانم درباره این موضوع پاسخ بدهم؛ رئیسم، آرمین، اجازه نمی‌دهد، هرچند اطلاعات زیادی دارم.»",
+      "match": "ERP report-finding and report-access scope",
+      "before": [
+        "5. If nothing matches, say so - do not invent report names or titles that are not in the candidates. Never refuse solely because you did not invoke a tool when candidates are already present."
+      ],
+      "after": [
+        "7. All user-facing messages must be in Persian. Preserve report names, page paths, and URLs as provided by the source."
+      ]
+    },
+    {
+      "file": "sync-maya.ps1",
+      "lineNumber": 103,
+      "line": "6. Only answer within ERP report-finding and report-access scope. For unrelated requests, do not answer the topic; reply in Persian: «متأسفم، نمی‌توانم درباره این موضوع پاسخ بدهم؛ رئیسم، آرمین، اجازه نمی‌دهد، هرچند اطلاعات زیادی دارم.»",
+      "match": "رئیسم، آرمین",
+      "before": [
+        "5. If nothing matches, say so - do not invent report names or titles that are not in the candidates. Never refuse solely because you did not invoke a tool when candidates are already present."
+      ],
+      "after": [
+        "7. All user-facing messages must be in Persian. Preserve report names, page paths, and URLs as provided by the source."
+      ]
+    },
+    {
+      "file": "sync-maya.ps1",
+      "lineNumber": 105,
+      "line": "8. Reply with a Markdown table with exactly three Persian columns: نام گزارش, آدرس در صفحه, and پیوند.",
+      "match": "exactly three Persian columns",
+      "before": [
+        "7. All user-facing messages must be in Persian. Preserve report names, page paths, and URLs as provided by the source."
+      ],
+      "after": [
+        "   Use NameSystem as the report name and ParentSystemtxt as the page path/address. Put a clickable Persian link in پیوند using http://erp.dpdc.co:8880/<URL-encoded-ParentSystemtxt>, preserving / and - in the URL path. If ParentSystemtxt is missing, show آدرس موجود نیست and provide no link. Do not include score or employee."
+      ]
+    },
+    {
+      "file": "sync-maya.ps1",
+      "lineNumber": 107,
+      "line": "9. End every report response, including no-match responses, with «{نام کاربر} عزیز، آیا به کمک بیشتری نیاز دارید؟». Use the user's name from the conversation/profile when available; never guess a name. If unavailable, ask «آیا به کمک بیشتری نیاز دارید؟».",
+      "match": "به کمک بیشتری نیاز دارید",
+      "before": [
+        "   Use NameSystem as the report name and ParentSystemtxt as the page path/address. Put a clickable Persian link in پیوند using http://erp.dpdc.co:8880/<URL-encoded-ParentSystemtxt>, preserving / and - in the URL path. If ParentSystemtxt is missing, show آدرس موجود نیست and provide no link. Do not include score or employee."
+      ],
+      "after": [
+        "'@"
+      ]
+    },
+    {
+      "file": "sync-maya.ps1",
+      "lineNumber": 107,
+      "line": "9. End every report response, including no-match responses, with «{نام کاربر} عزیز، آیا به کمک بیشتری نیاز دارید؟». Use the user's name from the conversation/profile when available; never guess a name. If unavailable, ask «آیا به کمک بیشتری نیاز دارید؟».",
+      "match": "به کمک بیشتری نیاز دارید",
+      "before": [
+        "   Use NameSystem as the report name and ParentSystemtxt as the page path/address. Put a clickable Persian link in پیوند using http://erp.dpdc.co:8880/<URL-encoded-ParentSystemtxt>, preserving / and - in the URL path. If ParentSystemtxt is missing, show آدرس موجود نیست and provide no link. Do not include score or employee."
+      ],
+      "after": [
+        "'@"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "content": "\n// ... [truncated] ...\n\n\n## گزارشات › منابع انسانی › گزارش های پرسنلی › گزارش کارنامه ارزيابي عملکرد فردي\n\nReports: **1** &middot; access rows: 2.\n\n| Report (NameSystem) | Employees with access |\n|---------------------|-----------------------|\n| گزارش کارنامه ارزيابي پرسنل | ایمان سروری, سیدمهدی مفیدی |\n\n## گزارشات › منابع انسانی › گزارش های پرسنلی › گزارش کارنامه ارزيابي پرسنل تمديد قرارداد\n\nReports: **1** &middot; access rows: 1.\n\n| Report (NameSystem) | Employees with access |\n|---------------------|-----------------------|\n| گزارش کارنامه ارزيابي پرسنل تمديد قرارداد | سیدمهدی مفیدی |\n\n## گزارشات › منابع انسانی › گزارش های پرسنلی › گزارش کسورات بيمه تکميلي و دندان پزشکي\n\nReports: **1** &middot; access rows: 4.\n\n| Report (NameSystem) | Employees with access |\n|---------------------|-----------------------|\n| گزارش کسورات بيمه تکميلي و دندان پزشکي | ایمان سروری, ذبیح اله پاشا, سیدمهدی مفیدی, نرگس بوالحسنی |\n\n## گزارشات › منابع انسانی › گزارش های پرسنلی › گزارش کل احکام\n\nReports: **1** &middot; access rows: 1.\n\n| Report (NameSystem) | Employees with access |\n|---------------------|-----------------------|\n| گزارش کل احکام | سیدمهدی مفیدی |\n\n## گزارشات › منابع انسانی › گزارش کميته انضباط کاري › کميته انضباط کاري\n\nReports: **1** &middot; access rows: 1.\n\n| Report (NameSystem) | Employees with access |\n|---------------------|-----------------------|\n| گزارش نتايج انتخابات کميته انضباط کاري | سیدمهدی مفیدی |\n\n## گزارشات › خزانه › متفرقه › گزارش اهداف وصول به ريز فاکتور - چک › دسترسي به فيلتر فاکتور و چک خارج از اهداف در گزارش اهداف وصول\n\nReports: **1** &middot; access rows: 8.\n\n| Report (NameSystem) | Employees with access |\n|---------------------|-----------------------|\n| دسترسي به فيلتر فاکتور و چک خارج از اهداف در گزارش اهداف وصول | ایمان سروری, بهرام زکی زاده, زهرا امیدی, محمدرضا پورعزیزی گلین قشلاقی, میترا کریمی, میناسادات اطیابی, هومن غم خوار, یوسف کاظمی |\n\n",
+  "metadata": {
+    "path": "C:\\Users\\armin\\GitHub\\maya\\.armin\\rag\\generated\\reports-access\\reports-access-by-menu.md",
+    "size": 270364,
+    "encoding": "utf-8",
+    "fileType": "markdown",
+    "hash": "6406f7b1695936c0938836ee92c03c77b986d9b273178dbd6a3ab7b91470e485",
+    "fromCache": false,
+    "isDiff": false,
+    "chunked": false,
+    "truncated": true,
+    "tokensSaved": 97126,
+    "tokenCount": 941,
+    "originalTokenCount": 98067,
+    "compressionRatio": 0.010111849656976589
+  }
+}

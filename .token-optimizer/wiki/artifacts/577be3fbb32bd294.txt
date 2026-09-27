@@ -1,0 +1,57 @@
+{
+  "success": true,
+  "pattern": "reports-access-(index|by-menu|by-personnel)\\.md",
+  "metadata": {
+    "totalMatches": 6,
+    "filesSearched": 299,
+    "filesWithMatches": 2,
+    "returnedMatches": 6,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 211,
+    "originalTokenCount": 211,
+    "compressionRatio": 1,
+    "duration": 1829,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized grep response was materialized; repository bytes scanned are not model-context tokens."
+  },
+  "matches": [
+    {
+      "file": "scripts\\sync_maya_reports_access.py",
+      "lineNumber": 43,
+      "line": "    \"reports-access-index.md\",",
+      "match": "reports-access-index.md"
+    },
+    {
+      "file": "scripts\\sync_maya_reports_access.py",
+      "lineNumber": 44,
+      "line": "    \"reports-access-by-menu.md\",",
+      "match": "reports-access-by-menu.md"
+    },
+    {
+      "file": "scripts\\sync_maya_reports_access.py",
+      "lineNumber": 45,
+      "line": "    \"reports-access-by-personnel.md\",",
+      "match": "reports-access-by-personnel.md"
+    },
+    {
+      "file": "scripts\\generate_reports_access_md.py",
+      "lineNumber": 26,
+      "line": "    \"reports-access-index.md\",",
+      "match": "reports-access-index.md"
+    },
+    {
+      "file": "scripts\\generate_reports_access_md.py",
+      "lineNumber": 27,
+      "line": "    \"reports-access-by-menu.md\",",
+      "match": "reports-access-by-menu.md"
+    },
+    {
+      "file": "scripts\\generate_reports_access_md.py",
+      "lineNumber": 28,
+      "line": "    \"reports-access-by-personnel.md\",",
+      "match": "reports-access-by-personnel.md"
+    }
+  ]
+}

@@ -5,11 +5,11 @@ The script is meant to run *inside the Maya container* (``maya-openwebui``) beca
 image already ships ``sentence-transformers`` plus the cached embedding model that Maya
 uses for RAG, so documents and queries share one vector space (384-d, cosine).
 
-Only these three fields are embedded and stored as payload:
+Only report metadata is embedded and stored as payload:
 
 * ``NameSystem``       - report / system title (Persian)
 * ``ParentSystemtxt``  - full menu path of the report inside the ERP tree
-* ``FullNamePersonel`` - employee the access row belongs to
+* ``URL``              - direct ERP webpage URL derived from the menu path
 
 Usage (from the repo root on the Windows host)::
 
@@ -31,10 +31,16 @@ import os
 import sys
 import time
 import uuid
+from urllib.parse import quote
 
 import requests
 
-FIELDS = ("NameSystem", "ParentSystemtxt", "FullNamePersonel")
+FIELDS = ("NameSystem", "ParentSystemtxt")
+ERP_BASE_URL = "http://erp.dpdc.co:8880/"
+# Maya keeps ONE Qdrant collection (see scripts/qdrant_merge_collections.py):
+# every ERP point is tagged with this tenant so knowledge .md chunks and file
+# chunks sharing the collection are never returned by ERP searches.
+TENANT = "erp_reports"
 # Default must be the model Maya embeds queries with (exported inside the container);
 # a different model puts docs and queries in different vector spaces and silently
 # degrades every search (all-MiniLM-L6-v2 is English-only and was the old wrong default).
@@ -60,13 +66,33 @@ def normalize(text: str) -> str:
 
 
 def build_text(record: dict) -> str:
-    """Embedding text = the three fields, normalized and joined."""
-    return " | ".join(normalize(str(record.get(field, ""))) for field in FIELDS)
+    """Embedding text contains report name and webpage address only."""
+    return " | ".join(
+        value for value in (normalize(str(record.get(field, ""))) for field in FIELDS) if value
+    )
 
 
-def build_payload(record: dict) -> dict:
-    """Payload = the same three fields, verbatim except for the dump's stray padding."""
-    return {field: str(record.get(field) or "").strip() for field in FIELDS}
+def report_url(parent: str) -> str:
+    """Build the ERP report URL from its source menu address."""
+    if not parent:
+        return ""
+    path = quote(parent.strip().lstrip("/"), safe="/-")
+    return f"{ERP_BASE_URL}{path}"
+
+
+def build_payload(record: dict, text: str, tenant: str = TENANT) -> dict:
+    """Keep report name, webpage address, and URL plus required RAG metadata.
+
+    ``tenant_id`` scopes the point inside the shared collection and
+    ``text``/``metadata`` are the keys Open WebUI's vector client always reads,
+    so both the ERP tooling and Open WebUI can load the same point.
+    """
+    payload = {field: str(record.get(field) or "").strip() for field in FIELDS}
+    payload["URL"] = report_url(payload["ParentSystemtxt"])
+    payload["tenant_id"] = tenant
+    payload["text"] = text
+    payload["metadata"] = {"source": "erp_reports", "kind": "erp_row"}
+    return payload
 
 
 def point_id(text: str) -> str:
@@ -131,15 +157,33 @@ class Qdrant:
             print(f"  upserted {sent}/{len(points)}", flush=True)
         return sent
 
+    def delete_tenant(self, tenant: str):
+        """Clear one tenant's rows without touching the shared collection."""
+        self._request(
+            "POST",
+            f"/collections/{self.collection}/points/delete?wait=true",
+            {"filter": {"must": [{"key": "tenant_id", "match": {"value": tenant}}]}},
+        )
+
     def info(self) -> dict:
         return self._request("GET", f"/collections/{self.collection}")["result"]
 
-    def search(self, vector: list[float], limit: int = 5) -> list[dict]:
-        """Query API when the server has it (>=1.10), legacy search endpoint otherwise."""
-        body = {"vector": vector, "limit": limit, "with_payload": True}
+    def search(self, vector: list[float], limit: int = 5, tenant: str = TENANT) -> list[dict]:
+        """Query API when the server has it (>=1.10), legacy search endpoint otherwise.
+
+        Always pinned to the ERP tenant: the collection also holds the
+        knowledge .md chunks and file chunks.
+        """
+        must = [{"key": "tenant_id", "match": {"value": tenant}}]
+        body = {
+            "vector": vector,
+            "limit": limit,
+            "with_payload": True,
+            "filter": {"must": must},
+        }
         response = requests.post(
             f"{self.url}/collections/{self.collection}/points/query",
-            json={"query": vector, "limit": limit, "with_payload": True},
+            json={"query": vector, "limit": limit, "with_payload": True, "filter": {"must": must}},
             timeout=self.timeout,
         )
         if response.status_code == 200:
@@ -168,11 +212,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", required=True, help="path to rep_converted.deduped.json")
     parser.add_argument("--url", default="http://host.docker.internal:6333")
-    parser.add_argument("--collection", default="erp_reports")
+    parser.add_argument("--collection", default="maya", help="shared Maya collection")
+    parser.add_argument("--tenant", default=TENANT, help="tenant_id for the ingested points")
     parser.add_argument("--model", default=DEFAULT_MODEL_PATH)
     parser.add_argument("--cache", default=DEFAULT_CACHE)
     parser.add_argument("--batch", type=int, default=64, help="embedding batch size")
-    parser.add_argument("--recreate", action="store_true", help="drop the collection first")
+    parser.add_argument("--recreate", action="store_true", help="replace this tenant's report rows")
     parser.add_argument("--no-verify-search", action="store_true")
     args = parser.parse_args()
 
@@ -188,13 +233,16 @@ def main() -> int:
             f"Re-run without --model (or pass --model {active_model})."
         )
 
-    # One point per distinct (NameSystem, ParentSystemtxt, FullNamePersonel) triple.
+    # One point per distinct report name and webpage address.
     unique: dict[str, dict] = {}
     for record in records:
         text = build_text(record)
         if not text.strip(" |"):
             continue
-        unique[point_id(text)] = {"text": text, "payload": build_payload(record)}
+        unique[point_id(text)] = {
+            "text": text,
+            "payload": build_payload(record, text, args.tenant),
+        }
     print(f"records={len(records)} unique_points={len(unique)}", flush=True)
 
     from sentence_transformers import SentenceTransformer  # imported late: heavy
@@ -218,16 +266,21 @@ def main() -> int:
     client = Qdrant(args.url, args.collection)
     if client.exists():
         if args.recreate:
-            print(f"dropping existing collection {args.collection}", flush=True)
-            client.delete()
+            # The collection is shared with knowledge + file chunks: only the ERP
+            # tenant is cleared, the collection itself is never dropped.
+            print(
+                f"clearing tenant '{args.tenant}' from {args.collection} (shared collection)",
+                flush=True,
+            )
+            client.delete_tenant(args.tenant)
         else:
-            print(f"collection {args.collection} already exists (use --recreate to reset)", flush=True)
+            print(f"collection {args.collection} already exists (use --recreate to reset the ERP tenant)", flush=True)
     if not client.exists():
         client.create(size)
         print(f"created collection {args.collection} (size={size}, Cosine)", flush=True)
 
-    client.create_keyword_index("FullNamePersonel")
-    print("payload index: FullNamePersonel (keyword)", flush=True)
+    client.create_keyword_index("tenant_id")
+    print("payload index: tenant_id (keyword)", flush=True)
 
     points = [
         {"id": key, "vector": vector, "payload": unique[key]["payload"]}
@@ -246,15 +299,16 @@ def main() -> int:
         for query in (
             "\u0644\u06cc\u0633\u062a \u062f\u0631\u06cc\u0627\u0641\u062a \u0648 \u067e\u0631\u062f\u0627\u062e\u062a",  # لیست دریافت و پرداخت
             "\u062a\u0627\u0626\u06cc\u062f \u067e\u0631\u062f\u0627\u062e\u062a \u0627\u0646\u0628\u0627\u0631",  # تائید پرداخت انبار
-            "\u0645\u06cc\u062a\u0631\u0627 \u06a9\u0631\u06cc\u0645\u06cc",  # میترا کریمی
         ):
             vector = model.encode([normalize(query)], normalize_embeddings=True)[0].tolist()
-            hits = client.search(vector, limit=3)
+            hits = client.search(vector, limit=3, tenant=args.tenant)
             print(f"\nquery: {query}")
             for hit in hits:
                 payload = hit.get("payload", {})
-                print(f"  score={hit.get('score', 0):.4f} :: {payload.get('FullNamePersonel')}"
-                      f" :: {payload.get('NameSystem')}")
+                print(
+                    f"  score={hit.get('score', 0):.4f} :: "
+                    f"{payload.get('NameSystem')} :: {payload.get('URL')}"
+                )
 
     return 0
 

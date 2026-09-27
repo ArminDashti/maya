@@ -289,6 +289,7 @@ def _get_content_from_url_sync(request, url: str, loader_config):
 
 
 CHUNK_HASH_KEY = '_chunk_hash'
+CHUNK_ID_KEY = '_chunk_id'
 
 
 def _content_hash(text: str) -> str:
@@ -613,6 +614,61 @@ async def query_doc_with_hybrid_search(
         raise e
 
 
+async def rerank_search_result(
+    query: str,
+    result: Optional[SearchResult],
+    embedding_function,
+    reranking_function,
+    k: int,
+    k_reranker: int,
+    r: float,
+) -> dict:
+    """Rerank a plain vector-search result.
+
+    Applies the reranker plus the relevance threshold to vector-only results so
+    reranking works even when hybrid search is disabled. Callers should over-fetch
+    (widen the search limit) so the reranker has alternatives to choose from.
+    """
+    documents = _search_result_to_documents(result)
+    if not documents:
+        return {'ids': [[]], 'distances': [[]], 'documents': [[]], 'metadatas': [[]]}
+
+    ids = result.ids[0] if result and result.ids else []
+    if len(ids) == len(documents):
+        for chunk_id, document in zip(ids, documents):
+            document.metadata[CHUNK_ID_KEY] = chunk_id
+
+    compressor = RerankCompressor(
+        embedding_function=embedding_function,
+        top_n=max(k, k_reranker),
+        reranking_function=reranking_function,
+        r_score=r,
+    )
+    compressed = await compressor.acompress_documents(documents, query)
+
+    ranked = sorted(
+        (
+            (d.metadata.get('score') or 0.0, d.metadata.pop(CHUNK_ID_KEY, None), d.page_content, d.metadata)
+            for d in compressed
+        ),
+        key=lambda item: item[0],
+        reverse=True,
+    )[:k]
+
+    if not ranked:
+        return {'ids': [[]], 'distances': [[]], 'documents': [[]], 'metadatas': [[]]}
+
+    distances, chunk_ids, contents, metadatas = map(list, zip(*ranked))
+    result_dict = {
+        'distances': [distances],
+        'documents': [contents],
+        'metadatas': [metadatas],
+    }
+    if all(chunk_id is not None for chunk_id in chunk_ids):
+        result_dict['ids'] = [chunk_ids]
+    return result_dict
+
+
 def merge_get_results(get_results: list[dict]) -> dict:
     # Initialize lists to store combined data
     combined_documents = []
@@ -708,14 +764,14 @@ async def query_collection(
         'rag.hybrid_bm25_weight',
         'rag.enable_hybrid_search_enriched_texts',
     )
+    reranking_function = (
+        (lambda query, documents: request.app.state.RERANKING_FUNCTION(query, documents))
+        if request is not None and getattr(request.app.state, 'RERANKING_FUNCTION', None)
+        else None
+    )
     # When request is provided, try hybrid search + reranking if enabled
     if request and config.get('rag.enable_hybrid_search'):
         try:
-            reranking_function = (
-                (lambda query, documents: request.app.state.RERANKING_FUNCTION(query, documents))
-                if request.app.state.RERANKING_FUNCTION
-                else None
-            )
             return await query_collection_with_hybrid_search(
                 collection_names=collection_names,
                 queries=queries,
@@ -733,16 +789,22 @@ async def query_collection(
     results = []
     error = False
 
+    # Reranking is not hybrid-only: when a reranker is configured, apply it to the
+    # plain vector results too. Over-fetch so the reranker has alternatives to swap in.
+    k_reranker = config.get('rag.top_k_reranker') or k
+    relevance_threshold = config.get('rag.relevance_threshold') or 0.0
+    search_k = max(2 * k, k_reranker) if reranking_function else k
+
     def process_query_collection(collection_name, query_embedding):
         try:
             if collection_name:
                 result = query_doc(
                     collection_name=collection_name,
-                    k=k,
+                    k=search_k,
                     query_embedding=query_embedding,
                 )
                 if result is not None:
-                    return result.model_dump(), None
+                    return result, None
             return None, None
         except Exception as e:
             log.exception(f'Error when querying the collection: {e}')
@@ -759,19 +821,52 @@ async def query_collection(
     query_embeddings = await embedding_function(queries, prefix=RAG_EMBEDDING_QUERY_PREFIX)
     log.debug('query_collection: processing %s queries across %s collections', len(queries), len(collection_names))
 
+    # Keep each raw result paired with its query text so reranking scores the right query.
+    combos = [
+        (query, collection_name, query_embedding)
+        for query, query_embedding in zip(queries, query_embeddings)
+        for collection_name in collection_names
+    ]
     task_results = await asyncio.gather(
         *[
             asyncio.to_thread(process_query_collection, collection_name, query_embedding)
-            for query_embedding in query_embeddings
-            for collection_name in collection_names
+            for _, collection_name, query_embedding in combos
         ]
     )
 
-    for result, err in task_results:
+    raw_results = []
+    for (query, _, _), (result, err) in zip(combos, task_results):
         if err is not None:
             error = True
         elif result is not None:
-            results.append(result)
+            raw_results.append((query, result))
+
+    if reranking_function and raw_results:
+        reranked_results = await asyncio.gather(
+            *(
+                rerank_search_result(
+                    query=query,
+                    result=result,
+                    embedding_function=embedding_function,
+                    reranking_function=reranking_function,
+                    k=k,
+                    k_reranker=k_reranker,
+                    r=relevance_threshold,
+                )
+                for query, result in raw_results
+            ),
+            return_exceptions=True,
+        )
+        for (_, raw_result), reranked in zip(raw_results, reranked_results):
+            if isinstance(reranked, BaseException):
+                log.error(
+                    'Rerank failed, falling back to raw vector results: %s', reranked, exc_info=reranked
+                )
+                results.append(raw_result.model_dump())
+            else:
+                results.append(reranked)
+    else:
+        results.extend(result.model_dump() for _, result in raw_results)
 
     if error and not results:
         log.warning('All collection queries failed. No results returned.')

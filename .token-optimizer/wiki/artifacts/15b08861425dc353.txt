@@ -1,0 +1,18 @@
+{
+  "success": false,
+  "pattern": "reports-access-(index|by-menu|by-personnel)|FullNamePersonel|ParentSystemtxt|build_payload(|build_text(|search_erp_reports(",
+  "metadata": {
+    "totalMatches": 0,
+    "filesSearched": 0,
+    "filesWithMatches": 0,
+    "returnedMatches": 0,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 0,
+    "originalTokenCount": 0,
+    "compressionRatio": 0,
+    "duration": 1,
+    "cacheHit": false
+  },
+  "error": "Invalid regular expression: /reports-access-(index|by-menu|by-personnel)|FullNamePersonel|ParentSystemtxt|build_payload(|build_text(|search_erp_reports(/gi: Unterminated group"
+}

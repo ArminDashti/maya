@@ -3,14 +3,15 @@ title: Qdrant ERP Report Access Search
 author: Armin Dashti
 version: 1.0.0
 required_open_webui_version: 0.11.0
-description: Vector search over the ERP report-access dataset (Qdrant collection "erp_reports").
+description: Vector search over the ERP report-access rows in Maya's single Qdrant collection "maya" (tenant erp_reports).
 """
 
 # Maya tool: search the ERP report-access dataset by meaning, not by keyword.
 #
-# Data: 3732 vectors in Qdrant (collection "erp_reports"), built by
-# scripts/qdrant_ingest_erp_reports.py from rep_converted.deduped.json.
-# Payload per point: NameSystem, ParentSystemtxt, FullNamePersonel.
+# One vector per distinct report name and webpage address, in collection "maya"
+# (payload tenant_id = "erp_reports"). Knowledge chunks, files, and report rows
+# share the collection and are isolated by tenant_id.
+# Payload fields: NameSystem, ParentSystemtxt, URL.
 #
 # Runs inside the maya-openwebui container, so it reuses the container's cached
 # sentence-transformers model - the same one Maya uses for RAG - which keeps query
@@ -25,6 +26,10 @@ import requests
 from pydantic import BaseModel
 
 log = logging.getLogger(__name__)
+
+
+def _escape_markdown_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ")
 
 
 def _normalize(text: str) -> str:
@@ -42,7 +47,8 @@ class Tools:
         """Settings editable in Admin Panel -> Tools -> Qdrant ERP Report Access Search."""
 
         qdrant_url: str = "http://host.docker.internal:6333"
-        collection: str = "erp_reports"
+        collection: str = "maya"
+        tenant: str = "erp_reports"
         embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
         cache_folder: str = "/app/backend/data/cache/embedding/models"
         default_top_k: int = 8
@@ -66,12 +72,13 @@ class Tools:
         vector = self._get_model().encode([_normalize(text)], normalize_embeddings=True)
         return vector[0].tolist()
 
-    def _search(self, vector: list, limit: int, person: str = "") -> list:
+    def _search(self, vector: list, limit: int) -> list:
         body = {"vector": vector, "limit": limit, "with_payload": True}
-        if person:
-            body["filter"] = {
-                "must": [{"key": "FullNamePersonel", "match": {"value": _normalize(person)}}]
-            }
+        # One shared collection: pin the search to the ERP tenant so knowledge
+        # .md chunks are never reported as report-access rows.
+        body["filter"] = {
+            "must": [{"key": "tenant_id", "match": {"value": self.valves.tenant}}]
+        }
         response = requests.post(
             f"{self.valves.qdrant_url}/collections/{self.valves.collection}/points/search",
             json=body,
@@ -80,26 +87,24 @@ class Tools:
         response.raise_for_status()
         return response.json()["result"]
 
-    def search_erp_report_access(self, query: str, person: str = "", top_k: int = 0) -> str:
+    def search_erp_report_access(self, query: str, top_k: int = 0) -> str:
         """
         Callable name: search_erp_report_access (do not invent other names).
 
         Search the ERP report-access vector database when the platform exposes this
         tool. Prefer any Qdrant/knowledge context already injected into the chat turn;
-        that retrieval already counts as the vector search. Use this tool for
-        who-can-access questions when available, then open reports-access-*.md /
-        reports-index.md / reports.md to confirm details.
+        that retrieval already counts as the vector search. Use this tool to
+        find report names and their webpage addresses.
         Persian and English queries both work; the search is semantic (embedding
         similarity), so partial titles and plain-language descriptions are fine.
 
         :param query: What to look for, e.g. "لیست دریافت و پرداخت" or "warehouse count report".
-        :param person: Optional employee full name to restrict the results to that person's access rows.
         :param top_k: How many rows to return (default from tool settings).
-        :return: Markdown list of matches: report title, ERP menu path, employee.
+        :return: Persian Markdown table with report name, webpage address, and URL.
         """
         limit = int(top_k) if top_k else int(self.valves.default_top_k)
         try:
-            hits = self._search(self._embed(query), max(1, min(limit, 50)), person)
+            hits = self._search(self._embed(query), max(1, min(limit, 50)))
         except Exception as error:  # never break the chat turn on a backend hiccup
             log.exception("qdrant search failed")
             return f"Qdrant search failed: {error}"
@@ -107,13 +112,14 @@ class Tools:
         if not hits:
             return "No matching report-access rows found in the vector database."
 
-        lines = [f"Top {len(hits)} matches from the ERP report-access vector DB:"]
-        for position, hit in enumerate(hits, start=1):
+        lines = [
+            "| نام گزارش | آدرس در صفحه وب | URL |",
+            "| --- | --- | --- |",
+        ]
+        for hit in hits:
             payload = hit.get("payload") or {}
-            lines.append(
-                f"{position}. **{payload.get('NameSystem', '?')}** - menu: "
-                f"{payload.get('ParentSystemtxt', '?')} - employee: "
-                f"{payload.get('FullNamePersonel', '?')} (score {hit.get('score', 0):.3f})"
-            )
-        lines.append("Answer from these rows only; do not invent reports, paths or people.")
+            name = _escape_markdown_cell(str(payload.get("NameSystem") or "؟").strip())
+            parent = str(payload.get("ParentSystemtxt") or "").strip()
+            url = _escape_markdown_cell(str(payload.get("URL") or "").strip())
+            lines.append(f"| {name} | {_escape_markdown_cell(parent)} | {url} |")
         return "\n".join(lines)

@@ -1,17 +1,11 @@
 #!/usr/bin/env python3
-"""Generate RAG-ready Markdown from the ERP report-access dataset.
+"""Generate the canonical report catalog from the ERP source dataset.
 
 Input : ``rep_converted.deduped.json`` (host copy on the Desktop)
-Output: ``.armin/rag/generated/reports-access/``
+Output: ``reports-access.md`` with report name, webpage address, and URL.
 
-Files produced (all plain Markdown, no front-matter so any RAG chunker can split them):
-
-* ``reports-access-index.md``        - compact catalog: report title -> menu path -> access count
-* ``reports-access-by-menu.md``      - full data grouped by ERP menu path
-* ``reports-access-by-personnel.md`` - full data grouped by employee
-
-Only ``NameSystem``, ``ParentSystemtxt`` and ``FullNamePersonel`` are used; the decorative
-kashida (U+0640) padding inside the ERP menu paths is removed for readability.
+Employee access data is intentionally excluded. URL paths derive from
+``ParentSystemtxt`` using the ERP's report-page URL format.
 
 Usage::
 
@@ -25,9 +19,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from collections import Counter, defaultdict
+from urllib.parse import quote
 
-FIELDS = ("NameSystem", "ParentSystemtxt", "FullNamePersonel")
+ERP_BASE_URL = "http://erp.dpdc.co:8880/"
+LEGACY_OUTPUTS = (
+    "reports-access-index.md",
+    "reports-access-by-menu.md",
+    "reports-access-by-personnel.md",
+)
 
 
 def clean(text: str) -> str:
@@ -35,6 +34,7 @@ def clean(text: str) -> str:
     if not text:
         return ""
     out = text.replace("\u0640", "")
+    out = out.replace("\u064a", "\u06cc").replace("\u0643", "\u06a9")
     out = out.replace("\u200c", " ").replace("\u200f", "").replace("\u200e", "")
     return " ".join(out.split())
 
@@ -43,6 +43,18 @@ def menu_path(parent: str) -> str:
     """``الف---ب---ج`` -> ``الف › ب › ج`` (readable for the LLM and for humans)."""
     parts = [clean(part) for part in clean(parent).split("---")]
     return " \u203a ".join(part for part in parts if part)
+
+
+def report_url(parent: str) -> str:
+    """Build the ERP report URL from its source menu address."""
+    if not parent:
+        return ""
+    path = quote(parent.strip().lstrip("/"), safe="/-")
+    return f"{ERP_BASE_URL}{path}"
+
+
+def escape_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ")
 
 
 def main() -> int:
@@ -55,109 +67,43 @@ def main() -> int:
     with open(args.json, encoding="utf-8") as handle:
         records = json.load(handle)
 
-    rows = []
-    seen = set()
+    reports = {}
     for record in records:
         name = clean(str(record.get("NameSystem", "")))
-        path = menu_path(str(record.get("ParentSystemtxt", "")))
-        person = clean(str(record.get("FullNamePersonel", "")))
-        if not (name or path or person):
+        parent = str(record.get("ParentSystemtxt", "")).strip()
+        if not name:
             continue
-        key = (name, path, person)
-        if key in seen:
-            continue
-        seen.add(key)
-        rows.append(key)
+        # Match Qdrant's normalized point key while keeping the source address
+        # for exact URL generation. Later duplicate rows replace earlier ones.
+        reports[(name, clean(parent))] = (name, parent)
 
-    rows.sort(key=lambda row: (row[0], row[1], row[2]))
+    rows = sorted(reports.values(), key=lambda row: (row[0], clean(row[1])))
     os.makedirs(args.out, exist_ok=True)
-    header_note = (
-        f"Source: `{args.source_label}` &middot; {len(records)} raw rows &middot; "
-        f"{len(rows)} distinct (report, menu path, employee) rows."
-    )
-
-    # --- index: one line per report -------------------------------------------
-    per_report: dict[tuple[str, str], set[str]] = defaultdict(set)
-    for name, path, person in rows:
-        per_report[(name, path)].add(person)
-
-    index_lines = [
-        "# ERP Report Access Index",
+    lines = [
+        "# ERP Report Catalog",
         "",
-        header_note,
+        f"Source: `{args.source_label}` &middot; {len(rows)} distinct report locations.",
         "",
-        f"Distinct reports: **{len(per_report)}** &middot; employees: "
-        f"**{len({person for _, _, person in rows})}**.",
-        "",
-        "Each line lists a report, its ERP menu path, and how many employees can reach it.",
-        "",
-        "| # | Report (NameSystem) | Menu path | Employees |",
-        "|---|---------------------|-----------|-----------|",
+        "| Report name | Webpage address | URL |",
+        "|---|---|---|",
     ]
-    for position, ((name, path), people) in enumerate(
-        sorted(per_report.items(), key=lambda item: (-len(item[1]), item[0][0])), start=1
-    ):
-        index_lines.append(f"| {position} | {name} | {path} | {len(people)} |")
-    index_lines.append("")
+    for name, parent in rows:
+        lines.append(
+            f"| {escape_cell(name)} | {escape_cell(menu_path(parent))} | "
+            f"{report_url(parent)} |"
+        )
+    lines.append("")
 
-    # --- by menu path ----------------------------------------------------------
-    by_menu: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for name, path, person in rows:
-        by_menu[path].append((name, person))
+    target = os.path.join(args.out, "reports-access.md")
+    with open(target, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write("\n".join(lines))
 
-    menu_lines = ["# ERP Report Access by Menu Path", "", header_note, ""]
-    for path in sorted(by_menu, key=lambda value: (value.count("\u203a"), value)):
-        entries = by_menu[path]
-        menu_lines += [
-            f"## {path or '(no menu path)'}",
-            "",
-            f"Reports: **{len({name for name, _ in entries})}** &middot; access rows: {len(entries)}.",
-            "",
-            "| Report (NameSystem) | Employees with access |",
-            "|---------------------|-----------------------|",
-        ]
-        per_name: dict[str, set[str]] = defaultdict(set)
-        for name, person in entries:
-            per_name[name].add(person)
-        for name in sorted(per_name):
-            people = ", ".join(sorted(per_name[name]))
-            menu_lines.append(f"| {name} | {people} |")
-        menu_lines.append("")
+    for filename in LEGACY_OUTPUTS:
+        legacy_path = os.path.join(args.out, filename)
+        if os.path.isfile(legacy_path):
+            os.remove(legacy_path)
 
-    # --- by employee -----------------------------------------------------------
-    by_person: dict[str, Counter] = defaultdict(Counter)
-    for name, path, person in rows:
-        by_person[person][path] += 1
-
-    person_lines = ["# ERP Report Access by Employee", "", header_note, ""]
-    for person in sorted(by_person):
-        counter = by_person[person]
-        person_lines += [
-            f"## {person}",
-            "",
-            f"Reachable reports: **{sum(counter.values())}** across {len(counter)} menu paths.",
-            "",
-            "| Menu path | Reports |",
-            "|-----------|---------|",
-        ]
-        for path, count in sorted(counter.items(), key=lambda item: (-item[1], item[0])):
-            person_lines.append(f"| {path or '(no menu path)'} | {count} |")
-        person_lines.append("")
-
-    written = {}
-    for filename, lines in (
-        ("reports-access-index.md", index_lines),
-        ("reports-access-by-menu.md", menu_lines),
-        ("reports-access-by-personnel.md", person_lines),
-    ):
-        target = os.path.join(args.out, filename)
-        with open(target, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write("\n".join(lines) + "\n")
-        written[filename] = os.path.getsize(target)
-
-    for filename, size in written.items():
-        print(f"{filename}: {size:,} bytes -> {os.path.join(args.out, filename)}")
-    print(f"rows={len(rows)} reports={len(per_report)} employees={len(by_person)} paths={len(by_menu)}")
+    print(f"reports={len(rows)} -> {target} ({os.path.getsize(target):,} bytes)")
     return 0
 
 

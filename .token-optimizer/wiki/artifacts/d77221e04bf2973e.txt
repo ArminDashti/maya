@@ -1,0 +1,131 @@
+{
+  "success": true,
+  "pattern": "Find ERP Report",
+  "metadata": {
+    "totalMatches": 8,
+    "filesSearched": 5108,
+    "filesWithMatches": 4,
+    "returnedMatches": 8,
+    "truncated": false,
+    "tokensSaved": 0,
+    "tokenCount": 3632,
+    "originalTokenCount": 3632,
+    "compressionRatio": 1,
+    "duration": 3964,
+    "cacheHit": false,
+    "savingsClassification": "unmeasured",
+    "savingsReason": "No comparable unoptimized grep response was materialized; repository bytes scanned are not model-context tokens."
+  },
+  "matches": [
+    {
+      "file": "README.md",
+      "lineNumber": 57,
+      "line": "is attached to each model — plus the unified Skill *Find ERP Report* and the\r",
+      "match": "Find ERP Report",
+      "before": [
+        "\r",
+        "All four share the whole knowledge store — every knowledge base (`.md` files)\r"
+      ],
+      "after": [
+        "global filter that injects ERP vector\r",
+        "candidates. OpenCode Go additionally wants a stable `x-opencode-session` per\r"
+      ]
+    },
+    {
+      "file": ".armin\\rag\\sync-maya.ps1",
+      "lineNumber": 83,
+      "line": "# folded into Find ERP Report).\r",
+      "match": "Find ERP Report",
+      "before": [
+        "\r",
+        "# One unified skill (the former Report Index First + Persian Title Match content\r"
+      ],
+      "after": [
+        "$skills = @(\r",
+        "  @{\r"
+      ]
+    },
+    {
+      "file": ".armin\\rag\\sync-maya.ps1",
+      "lineNumber": 87,
+      "line": "    Name = \"Find ERP Report\"\r",
+      "match": "Find ERP Report",
+      "before": [
+        "  @{\r",
+        "    Id = \"find-erp-report\"\r"
+      ],
+      "after": [
+        "    Description = \"Locate ERP reports from the injected ERP vector candidates (collection maya) by Persian title, English page name, or menu path. Prefer injected candidates; use reports-index.md only as secondary confirm.\"\r",
+        "    # Single-quoted here-string: backticks in markdown must not be PowerShell escapes (`r = CR).\r"
+      ]
+    },
+    {
+      "file": ".armin\\rag\\sync-maya.ps1",
+      "lineNumber": 91,
+      "line": "# Find ERP Report\r",
+      "match": "Find ERP Report",
+      "before": [
+        "    # Single-quoted here-string: backticks in markdown must not be PowerShell escapes (`r = CR).\r",
+        "    Content = @'\r"
+      ],
+      "after": [
+        "\r",
+        "Order: injected ERP vector candidates first (counts as vector search), then .md files.\r"
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\1b0c98eb9e42d7aa.txt",
+      "lineNumber": 2,
+      "line": "  \"content\": \"  @{ Id = \\\"opencode-gpt-6-luna\\\"; Name = \\\"OpenCode-GPT-6-Luna\\\"; Base = \\\"gpt-6-luna\\\"; Kind = \\\"opencode\\\" }\\r\\n)\\r\\n\\r\\n$users = @(\\r\\n  @{ Name = \\\"Shima Seifollahi\\\"; Email = \\\"s.seifollahi@ondpline.com\\\"; Role = \\\"user\\\" },\\r\\n  @{ Name = \\\"Armin Dashti\\\"; Email = \\\"a.dashti@ondpline.com\\\"; Role = \\\"admin\\\" },\\r\\n  @{ Name = \\\"Mozaffar Sabzevari\\\"; Email = \\\"m.sabzevari@ondpline.com\\\"; Role = \\\"user\\\" },\\r\\n  @{ Name = \\\"Amin Bazri\\\"; Email = \\\"a.bazri@ondpline.com\\\"; Role = \\\"user\\\" },\\r\\n  @{ Name = \\\"Ali Barati\\\"; Email = \\\"a.barati@ondpline.com\\\"; Role = \\\"user\\\" },\\r\\n  @{ Name = \\\"MJ Amiri\\\"; Email = \\\"m.amiri@ondpline.com\\\"; Role = \\\"user\\\" }\\r\\n)\\r\\n\\r\\n$skills = @(\\r\\n  @{\\r\\n    Id = \\\"find-erp-report\\\"\\r\\n    Name = \\\"Find ERP Report\\\"\\r\\n    Description = \\\"Locate ERP reports from the injected ERP vector candidates (collection maya) by Persian title, English page name, or menu path.\\\"\\r\\n    # Single-quoted here-string: backticks in markdown must not be PowerShell escapes (`r = CR).\\r\\n    Content = @'\\r\\n# Find ERP Report\\r\\n\\r\\nOrder: injected ERP vector candidates first (counts as vector search), then .md files.\\r\\n\\r\\n1. Prefer the system block \\\"### ERP vector candidates (collection maya)\\\". Do not emit fake tool-call XML. Tool search_erp_report_access is optional for who-can-access only.\\r\\n2. Treat listed NameSystem / ParentSystemtxt rows as candidates; keep all relevant ones.\\r\\n3. Reply with a markdown table whose only columns are NameSystem and ParentSystemtxt.\\r\\n4. If nothing matches, say so - do not invent report names. Never refuse solely because you did not invoke a tool when candidates are already present.\\r\\n'@\\r\\n  },\\r\\n  @{\\r\\n    Id = \\\"report-index-first\\\"\\r\\n    Name = \\\"Report Index First\\\"\\r\\n    Description = \\\"Prefer injected ERP vector candidates; use reports-index.md only as secondary confirm.\\\"\\r\\n    Content = @'\\r\\n# Report Index First\\r\\n\\r\\nWhen the user asks for a report:\\r\\n- Step 1: use the inject...",
+      "match": "Find ERP Report",
+      "before": [
+        "{"
+      ],
+      "after": [
+        "  \"metadata\": {",
+        "    \"path\": \".armin/rag/sync-maya.ps1\","
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\1b0c98eb9e42d7aa.txt",
+      "lineNumber": 2,
+      "line": "  \"content\": \"  @{ Id = \\\"opencode-gpt-6-luna\\\"; Name = \\\"OpenCode-GPT-6-Luna\\\"; Base = \\\"gpt-6-luna\\\"; Kind = \\\"opencode\\\" }\\r\\n)\\r\\n\\r\\n$users = @(\\r\\n  @{ Name = \\\"Shima Seifollahi\\\"; Email = \\\"s.seifollahi@ondpline.com\\\"; Role = \\\"user\\\" },\\r\\n  @{ Name = \\\"Armin Dashti\\\"; Email = \\\"a.dashti@ondpline.com\\\"; Role = \\\"admin\\\" },\\r\\n  @{ Name = \\\"Mozaffar Sabzevari\\\"; Email = \\\"m.sabzevari@ondpline.com\\\"; Role = \\\"user\\\" },\\r\\n  @{ Name = \\\"Amin Bazri\\\"; Email = \\\"a.bazri@ondpline.com\\\"; Role = \\\"user\\\" },\\r\\n  @{ Name = \\\"Ali Barati\\\"; Email = \\\"a.barati@ondpline.com\\\"; Role = \\\"user\\\" },\\r\\n  @{ Name = \\\"MJ Amiri\\\"; Email = \\\"m.amiri@ondpline.com\\\"; Role = \\\"user\\\" }\\r\\n)\\r\\n\\r\\n$skills = @(\\r\\n  @{\\r\\n    Id = \\\"find-erp-report\\\"\\r\\n    Name = \\\"Find ERP Report\\\"\\r\\n    Description = \\\"Locate ERP reports from the injected ERP vector candidates (collection maya) by Persian title, English page name, or menu path.\\\"\\r\\n    # Single-quoted here-string: backticks in markdown must not be PowerShell escapes (`r = CR).\\r\\n    Content = @'\\r\\n# Find ERP Report\\r\\n\\r\\nOrder: injected ERP vector candidates first (counts as vector search), then .md files.\\r\\n\\r\\n1. Prefer the system block \\\"### ERP vector candidates (collection maya)\\\". Do not emit fake tool-call XML. Tool search_erp_report_access is optional for who-can-access only.\\r\\n2. Treat listed NameSystem / ParentSystemtxt rows as candidates; keep all relevant ones.\\r\\n3. Reply with a markdown table whose only columns are NameSystem and ParentSystemtxt.\\r\\n4. If nothing matches, say so - do not invent report names. Never refuse solely because you did not invoke a tool when candidates are already present.\\r\\n'@\\r\\n  },\\r\\n  @{\\r\\n    Id = \\\"report-index-first\\\"\\r\\n    Name = \\\"Report Index First\\\"\\r\\n    Description = \\\"Prefer injected ERP vector candidates; use reports-index.md only as secondary confirm.\\\"\\r\\n    Content = @'\\r\\n# Report Index First\\r\\n\\r\\nWhen the user asks for a report:\\r\\n- Step 1: use the inject...",
+      "match": "Find ERP Report",
+      "before": [
+        "{"
+      ],
+      "after": [
+        "  \"metadata\": {",
+        "    \"path\": \".armin/rag/sync-maya.ps1\","
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\14282a13ff93cfe6.txt",
+      "lineNumber": 29,
+      "line": "      \"line\": \"  \\\"content\\\": \\\"  @{ Id = \\\\\\\"opencode-gpt-6-luna\\\\\\\"; Name = \\\\\\\"OpenCode-GPT-6-Luna\\\\\\\"; Base = \\\\\\\"gpt-6-luna\\\\\\\"; Kind = \\\\\\\"opencode\\\\\\\" }\\\\r\\\\n)\\\\r\\\\n\\\\r\\\\n$users = @(\\\\r\\\\n  @{ Name = \\\\\\\"Shima Seifollahi\\\\\\\"; Email = \\\\\\\"s.seifollahi@ondpline.com\\\\\\\"; Role = \\\\\\\"user\\\\\\\" },\\\\r\\\\n  @{ Name = \\\\\\\"Armin Dashti\\\\\\\"; Email = \\\\\\\"a.dashti@ondpline.com\\\\\\\"; Role = \\\\\\\"admin\\\\\\\" },\\\\r\\\\n  @{ Name = \\\\\\\"Mozaffar Sabzevari\\\\\\\"; Email = \\\\\\\"m.sabzevari@ondpline.com\\\\\\\"; Role = \\\\\\\"user\\\\\\\" },\\\\r\\\\n  @{ Name = \\\\\\\"Amin Bazri\\\\\\\"; Email = \\\\\\\"a.bazri@ondpline.com\\\\\\\"; Role = \\\\\\\"user\\\\\\\" },\\\\r\\\\n  @{ Name = \\\\\\\"Ali Barati\\\\\\\"; Email = \\\\\\\"a.barati@ondpline.com\\\\\\\"; Role = \\\\\\\"user\\\\\\\" },\\\\r\\\\n  @{ Name = \\\\\\\"MJ Amiri\\\\\\\"; Email = \\\\\\\"m.amiri@ondpline.com\\\\\\\"; Role = \\\\\\\"user\\\\\\\" }\\\\r\\\\n)\\\\r\\\\n\\\\r\\\\n$skills = @(\\\\r\\\\n  @{\\\\r\\\\n    Id = \\\\\\\"find-erp-report\\\\\\\"\\\\r\\\\n    Name = \\\\\\\"Find ERP Report\\\\\\\"\\\\r\\\\n    Description = \\\\\\\"Locate ERP reports from the injected ERP vector candidates (collection maya) by Persian title, English page name, or menu path.\\\\\\\"\\\\r\\\\n    # Single-quoted here-string: backticks in markdown must not be PowerShell escapes (`r = CR).\\\\r\\\\n    Content = @'\\\\r\\\\n# Find ERP Report\\\\r\\\\n\\\\r\\\\nOrder: injected ERP vector candidates first (counts as vector search), then .md files.\\\\r\\\\n\\\\r\\\\n1. Prefer the system block \\\\\\\"### ERP vector candidates (collection maya)\\\\\\\". Do not emit fake tool-call XML. Tool search_erp_report_access is optional for who-can-access only.\\\\r\\\\n2. Treat listed NameSystem / ParentSystemtxt rows as candidates; keep all relevant ones.\\\\r\\\\n3. Reply with a markdown table whose only columns are NameSystem and ParentSystemtxt.\\\\r\\\\n4. If nothing matches, say so - do not invent report names. Never refuse solely because you did not invoke a tool when candidates are already present.\\\\r\\\\n'@\\\\r\\\\n  },\\\\r\\\\n  @{\\\\r\\\\n    Id = \\\\\\\"report-index-first\\\\\\\"\\\\r\\\\n    Name = \\\\\\\"Report Index First\\\\\\\"\\\\r\\\\n    Description = \\\\\\\"Pref...",
+      "match": "Find ERP Report",
+      "before": [
+        "      \"file\": \".token-optimizer\\\\wiki\\\\artifacts\\\\1b0c98eb9e42d7aa.txt\",",
+        "      \"lineNumber\": 2,"
+      ],
+      "after": [
+        "      \"match\": \"find-erp-report\"",
+        "    }"
+      ]
+    },
+    {
+      "file": ".token-optimizer\\wiki\\artifacts\\14282a13ff93cfe6.txt",
+      "lineNumber": 29,
+      "line": "      \"line\": \"  \\\"content\\\": \\\"  @{ Id = \\\\\\\"opencode-gpt-6-luna\\\\\\\"; Name = \\\\\\\"OpenCode-GPT-6-Luna\\\\\\\"; Base = \\\\\\\"gpt-6-luna\\\\\\\"; Kind = \\\\\\\"opencode\\\\\\\" }\\\\r\\\\n)\\\\r\\\\n\\\\r\\\\n$users = @(\\\\r\\\\n  @{ Name = \\\\\\\"Shima Seifollahi\\\\\\\"; Email = \\\\\\\"s.seifollahi@ondpline.com\\\\\\\"; Role = \\\\\\\"user\\\\\\\" },\\\\r\\\\n  @{ Name = \\\\\\\"Armin Dashti\\\\\\\"; Email = \\\\\\\"a.dashti@ondpline.com\\\\\\\"; Role = \\\\\\\"admin\\\\\\\" },\\\\r\\\\n  @{ Name = \\\\\\\"Mozaffar Sabzevari\\\\\\\"; Email = \\\\\\\"m.sabzevari@ondpline.com\\\\\\\"; Role = \\\\\\\"user\\\\\\\" },\\\\r\\\\n  @{ Name = \\\\\\\"Amin Bazri\\\\\\\"; Email = \\\\\\\"a.bazri@ondpline.com\\\\\\\"; Role = \\\\\\\"user\\\\\\\" },\\\\r\\\\n  @{ Name = \\\\\\\"Ali Barati\\\\\\\"; Email = \\\\\\\"a.barati@ondpline.com\\\\\\\"; Role = \\\\\\\"user\\\\\\\" },\\\\r\\\\n  @{ Name = \\\\\\\"MJ Amiri\\\\\\\"; Email = \\\\\\\"m.amiri@ondpline.com\\\\\\\"; Role = \\\\\\\"user\\\\\\\" }\\\\r\\\\n)\\\\r\\\\n\\\\r\\\\n$skills = @(\\\\r\\\\n  @{\\\\r\\\\n    Id = \\\\\\\"find-erp-report\\\\\\\"\\\\r\\\\n    Name = \\\\\\\"Find ERP Report\\\\\\\"\\\\r\\\\n    Description = \\\\\\\"Locate ERP reports from the injected ERP vector candidates (collection maya) by Persian title, English page name, or menu path.\\\\\\\"\\\\r\\\\n    # Single-quoted here-string: backticks in markdown must not be PowerShell escapes (`r = CR).\\\\r\\\\n    Content = @'\\\\r\\\\n# Find ERP Report\\\\r\\\\n\\\\r\\\\nOrder: injected ERP vector candidates first (counts as vector search), then .md files.\\\\r\\\\n\\\\r\\\\n1. Prefer the system block \\\\\\\"### ERP vector candidates (collection maya)\\\\\\\". Do not emit fake tool-call XML. Tool search_erp_report_access is optional for who-can-access only.\\\\r\\\\n2. Treat listed NameSystem / ParentSystemtxt rows as candidates; keep all relevant ones.\\\\r\\\\n3. Reply with a markdown table whose only columns are NameSystem and ParentSystemtxt.\\\\r\\\\n4. If nothing matches, say so - do not invent report names. Never refuse solely because you did not invoke a tool when candidates are already present.\\\\r\\\\n'@\\\\r\\\\n  },\\\\r\\\\n  @{\\\\r\\\\n    Id = \\\\\\\"report-index-first\\\\\\\"\\\\r\\\\n    Name = \\\\\\\"Report Index First\\\\\\\"\\\\r\\\\n    Description = \\\\\\\"Pref...",
+      "match": "Find ERP Report",
+      "before": [
+        "      \"file\": \".token-optimizer\\\\wiki\\\\artifacts\\\\1b0c98eb9e42d7aa.txt\",",
+        "      \"lineNumber\": 2,"
+      ],
+      "after": [
+        "      \"match\": \"find-erp-report\"",
+        "    }"
+      ]
+    }
+  ]
+}

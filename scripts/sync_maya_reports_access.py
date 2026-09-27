@@ -3,18 +3,18 @@
 
 Companion to
 
-* ``scripts/generate_reports_access_md.py``  (markdown from rep_converted.deduped.json)
-* ``scripts/qdrant_ingest_erp_reports.py``   (vectors into the Qdrant ``erp_reports`` collection)
+* ``scripts/generate_reports_access_md.py``  (canonical report catalog from rep_converted.deduped.json)
+* ``scripts/qdrant_ingest_erp_reports.py``   (vectors into Maya's single Qdrant collection ``maya``, tenant ``erp_reports``)
 
 What this script does, in order:
 
 1. signs in to Maya (Open WebUI admin),
 2. ensures the knowledge collection ``ERP Reports Access`` exists,
-3. uploads/refreshes ``.armin/rag/generated/reports-access/*.md`` and links them to it
+3. uploads/refreshes the canonical ``reports-access.md`` and links it to the collection
    (re-uploading is what re-embeds them into Qdrant, so never skip it after regenerating),
 4. creates/updates the tool ``qdrant_erp_search`` from ``.armin/rag/tools/qdrant_erp_search.py``,
-5. creates/updates the global filter ``erp_reports_inject`` (inlet searches ``erp_reports``
-   for every chat model — no tool call required),
+5. creates/updates the global filter ``erp_reports_inject`` (inlet searches the ``erp_reports``
+   tenant of the shared ``maya`` collection for every chat model — no tool call required),
 6. attaches knowledge + tool to every model that already carries shared ``ERP Reports``
    (OpenRouter models still skip the tool; the global filter covers them).
 
@@ -37,6 +37,9 @@ import urllib.request
 import uuid
 
 MD_FILES = (
+    "reports-access.md",
+)
+LEGACY_MD_FILES = (
     "reports-access-index.md",
     "reports-access-by-menu.md",
     "reports-access-by-personnel.md",
@@ -140,7 +143,7 @@ def main() -> int:
     parser.add_argument("--md-dir", default=os.path.join(".armin", "rag", "generated", "reports-access"))
     parser.add_argument("--knowledge-name", default="ERP Reports Access")
     parser.add_argument("--knowledge-description",
-                        default="ERP report access matrix (who can reach which report/menu) generated from rep_converted.deduped.json")
+                        default="Canonical ERP report catalog with report name, webpage address, and URL")
     parser.add_argument("--tool-path", default=os.path.join(".armin", "rag", "tools", "qdrant_erp_search.py"))
     parser.add_argument("--tool-id", default="qdrant_erp_search",
                         help="alphanumerics and underscores only - Open WebUI rejects anything else")
@@ -182,12 +185,28 @@ def main() -> int:
     maya.call("POST", f"/api/v1/knowledge/{knowledge_id}/update",
               {"name": args.knowledge_name, "description": args.knowledge_description,
                "data": {"file_ids": file_ids}}, timeout=120)
+
+    # Remove the old access matrices only after the canonical catalog is linked.
+    if not args.skip_uploads:
+        stale_ids = set()
+        for item in linked_items:
+            filename = (item.get("meta") or {}).get("name") or item.get("filename")
+            if filename in LEGACY_MD_FILES and item.get("id"):
+                stale_ids.add(item["id"])
+        for filename in LEGACY_MD_FILES:
+            stale = maya.find_file(filename)
+            if stale and stale.get("id"):
+                stale_ids.add(stale["id"])
+        for file_id in stale_ids:
+            maya.call("DELETE", f"/api/v1/files/{file_id}", timeout=120)
+            print(f"removed legacy report catalog file {file_id}")
+
     maya.call("POST", f"/api/v1/knowledge/{knowledge_id}/access/update",
               {"id": knowledge_id,
                "access_grants": [{"principal_type": "user", "principal_id": "*", "permission": "read"}]}, timeout=120)
     linked = len(maya.call("GET", f"/api/v1/knowledge/{knowledge_id}/files", timeout=120).get("items", []))
     print(f"knowledge files: {linked}")
-    if linked < len(MD_FILES):
+    if linked != len(MD_FILES):
         raise SystemExit(f"knowledge '{args.knowledge_name}' has {linked} files, expected {len(MD_FILES)}")
 
     # --- tool ---------------------------------------------------------------
@@ -197,7 +216,7 @@ def main() -> int:
         "id": args.tool_id,
         "name": "Qdrant ERP Report Access Search",
         "content": open(args.tool_path, encoding="utf-8").read(),
-        "meta": {"description": "Semantic search over the ERP report-access vectors in Qdrant (collection erp_reports)."},
+        "meta": {"description": "Semantic search over the ERP report-access vectors in Qdrant (collection maya, tenant erp_reports)."},
         "access_grants": [{"principal_type": "user", "principal_id": "*", "permission": "read"}],
     }
     existing_tool = None
@@ -212,7 +231,7 @@ def main() -> int:
         maya.call("POST", "/api/v1/tools/create", tool_body, timeout=120)
         print(f"created tool {args.tool_id}")
 
-    # --- global filter (erp_reports inject for every model) -----------------
+    # --- global filter (ERP vector inject for every model) -------------------
     if not os.path.exists(args.filter_path):
         raise SystemExit(f"missing filter source: {args.filter_path}")
     filter_body = {
@@ -221,8 +240,8 @@ def main() -> int:
         "content": open(args.filter_path, encoding="utf-8").read(),
         "meta": {
             "description": (
-                "Global inlet: rewrite user text, search Qdrant erp_reports, "
-                "inject NameSystem/ParentSystemtxt candidates (no tool call)."
+                "Global inlet: rewrite user text, search the ERP tenant of the shared Qdrant collection, "
+                "inject NameSystem/ParentSystemtxt/URL candidates (no tool call)."
             )
         },
     }
@@ -274,13 +293,11 @@ def main() -> int:
             knowledge.append({"id": knowledge_id, "name": args.knowledge_name, "type": "collection"})
         meta["knowledge"] = knowledge
         tool_ids = list(meta.get("toolIds") or [])
-        # Free OpenRouter models often invent fake tool XML instead of native
-        # function calling; global filter erp_reports_inject still feeds them.
-        name = detail.get("name") or ""
-        skip_tool = (
-            model_id.startswith("openrouter-")
-            or name.startswith("OpenRouter-")
-        )
+        # Free-tier OpenRouter models often invent fake tool XML instead of native
+        # function calling; the global filter erp_reports_inject still feeds them.
+        # Only those are excluded - the paid openrouter/auto router keeps the tool.
+        free_ref = f"{model_id} {detail.get('base_model_id') or ''}".lower()
+        skip_tool = "-free" in free_ref or "/free" in free_ref
         if skip_tool:
             tool_ids = [t for t in tool_ids if t != args.tool_id]
         elif args.tool_id not in tool_ids:

@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Push the ERP report-access dataset (``rep_converted.deduped.json``) into Qdrant as vectors.
 
+RETIRED (2026-09-28): Maya ranks the report catalog with BM25 now
+(``.armin/rag/filters/erp_reports_inject.py`` over ``reports-access.bm25.json``), so
+this ingest is no longer part of the retrieval path and nothing in Maya reads the
+``erp_reports`` tenant. Kept for reference / in case a vector experiment is revived
+- running it writes vectors that no chat turn will ever consult.
+
 The script is meant to run *inside the Maya container* (``maya-openwebui``) because that
 image already ships ``sentence-transformers`` plus the cached embedding model that Maya
 uses for RAG, so documents and queries share one vector space (384-d, cosine).

@@ -2,7 +2,9 @@
 """Generate the canonical report catalog from the ERP source dataset.
 
 Input : ``rep_converted.deduped.json`` (host copy on the Desktop)
-Output: ``reports-access.md`` with report name, webpage address, and URL.
+Output: ``reports-access.md``   - human-readable catalog table
+        ``reports-access.bm25.json`` - same rows as compact JSON, the corpus the
+                                   global filter ranks with BM25 (no vector DB).
 
 Employee access data is intentionally excluded. URL paths derive from
 ``ParentSystemtxt`` using the ERP's report-page URL format.
@@ -22,6 +24,7 @@ import os
 from urllib.parse import quote
 
 ERP_BASE_URL = "http://erp.dpdc.co:8880/"
+CORPUS_FILENAME = "reports-access.bm25.json"
 LEGACY_OUTPUTS = (
     "reports-access-index.md",
     "reports-access-by-menu.md",
@@ -98,12 +101,27 @@ def main() -> int:
     with open(target, "w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(lines))
 
+    # Compact BM25 corpus for the chat filter/tool. Only the three fields the
+    # answer table needs: report name, menu path (the webpage address), URL.
+    corpus = {
+        "version": 1,
+        "generated_from": args.source_label,
+        "base_url": ERP_BASE_URL,
+        "count": len(rows),
+        "docs": [{"n": name, "m": menu_path(parent), "u": report_url(parent)} for name, parent in rows],
+    }
+    corpus_path = os.path.join(args.out, CORPUS_FILENAME)
+    with open(corpus_path, "w", encoding="utf-8", newline="\n") as handle:
+        json.dump(corpus, handle, ensure_ascii=False, indent=1)
+        handle.write("\n")
+
     for filename in LEGACY_OUTPUTS:
         legacy_path = os.path.join(args.out, filename)
         if os.path.isfile(legacy_path):
             os.remove(legacy_path)
 
     print(f"reports={len(rows)} -> {target} ({os.path.getsize(target):,} bytes)")
+    print(f"bm25 corpus -> {corpus_path} ({os.path.getsize(corpus_path):,} bytes)")
     return 0
 
 

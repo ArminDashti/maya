@@ -1,27 +1,29 @@
 #!/usr/bin/env python3
-"""Wire the ERP report-access RAG into Maya: markdown knowledge + Qdrant tool + global filter.
+"""Wire Maya's BM25 report retrieval: catalog + global filter + retired Qdrant tool.
 
 Companion to
 
-* ``scripts/generate_reports_access_md.py``  (canonical report catalog from rep_converted.deduped.json)
-* ``scripts/qdrant_ingest_erp_reports.py``   (vectors into Maya's single Qdrant collection ``maya``, tenant ``erp_reports``)
+* ``scripts/generate_reports_access_md.py`` - writes the catalog the filter ranks
+  (``.armin/rag/generated/reports-access/reports-access.bm25.json``)
+* ``.armin/rag/sync-maya.ps1`` - system prompt, skill, models, users
 
 What this script does, in order:
 
 1. signs in to Maya (Open WebUI admin),
-2. ensures the knowledge collection ``ERP Reports Access`` exists,
-3. uploads/refreshes the canonical ``reports-access.md`` and links it to the collection
-   (re-uploading is what re-embeds them into Qdrant, so never skip it after regenerating),
-4. creates/updates the tool ``qdrant_erp_search`` from ``.armin/rag/tools/qdrant_erp_search.py``,
-5. creates/updates the global filter ``erp_reports_inject`` (inlet searches the ``erp_reports``
-   tenant of the shared ``maya`` collection for every chat model — no tool call required),
-6. attaches knowledge + tool to every model that already carries shared ``ERP Reports``
-   (OpenRouter models still skip the tool; the global filter covers them).
+2. checks that the BM25 catalog exists (the filter reads it through the compose
+   bind mount ``.armin/rag/generated/reports-access`` -> ``/app/backend/data/maya-catalog``),
+3. creates/updates the global filter ``erp_reports_inject`` from
+   ``.armin/rag/filters/erp_reports_inject.py`` and keeps it active + global,
+4. retires the Qdrant-era tool: deletes tool ``qdrant_erp_search`` and drops its id
+   from every model (a deleted tool id left on a model breaks its turns).
+
+No knowledge upload happens any more: the old flow embedded the .md catalog into
+Qdrant, which the BM25 path replaced.
 
 Usage::
 
-    python scripts/sync_maya_reports_access.py                 # full sync
-    python scripts/sync_maya_reports_access.py --skip-uploads  # only tool/filter + model wiring
+    python scripts/sync_maya_reports_access.py            # push the filter
+    python scripts/sync_maya_reports_access.py --dry-run  # report what would change
 """
 
 from __future__ import annotations
@@ -30,20 +32,14 @@ import argparse
 import json
 import os
 import sys
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
-import uuid
 
-MD_FILES = (
-    "reports-access.md",
+CATALOG_PATH = os.path.join(
+    ".armin", "rag", "generated", "reports-access", "reports-access.bm25.json"
 )
-LEGACY_MD_FILES = (
-    "reports-access-index.md",
-    "reports-access-by-menu.md",
-    "reports-access-by-personnel.md",
-)
+RETIRED_TOOL_IDS = ("qdrant_erp_search",)
 
 
 class Maya:
@@ -53,15 +49,12 @@ class Maya:
         self.password = password
         self.token = None
 
-    # --- plumbing -----------------------------------------------------------
-    def call(self, method: str, path: str, payload=None, timeout: int = 300, raw: bytes = None, content_type: str = None):
-        data = raw if raw is not None else (json.dumps(payload).encode() if payload is not None else None)
+    def call(self, method: str, path: str, payload=None, timeout: int = 120):
+        data = json.dumps(payload).encode() if payload is not None else None
         headers = {"Accept": "application/json"}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
-        if content_type:
-            headers["Content-Type"] = content_type
-        elif data is not None:
+        if data is not None:
             headers["Content-Type"] = "application/json"
         request = urllib.request.Request(self.base + path, data=data, method=method, headers=headers)
         try:
@@ -73,211 +66,72 @@ class Maya:
             raise RuntimeError(f"{method} {path} -> HTTP {error.code}: {detail}") from None
 
     def login(self):
-        result = self.call("POST", "/api/v1/auths/signin", {"email": self.email, "password": self.password}, timeout=60)
+        result = self.call("POST", "/api/v1/auths/signin",
+                           {"email": self.email, "password": self.password}, timeout=60)
         self.token = result["token"]
         print(f"signed in as {self.email} ({result.get('role')})")
 
-    # --- knowledge ----------------------------------------------------------
-    def ensure_knowledge(self, name: str, description: str) -> str:
-        for item in self.call("GET", "/api/v1/knowledge/", timeout=120).get("items", []):
-            if item["name"] == name:
-                print(f"knowledge '{name}' -> {item['id']}")
-                return item["id"]
-        created = self.call("POST", "/api/v1/knowledge/create", {"name": name, "description": description}, timeout=120)
-        print(f"created knowledge '{name}' -> {created['id']}")
-        return created["id"]
 
-    def find_file(self, name: str):
-        for item in self.call("GET", "/api/v1/files/", timeout=120).get("items", []):
-            if item.get("filename") == name or (item.get("meta") or {}).get("name") == name:
-                return item
-        return None
-
-    def upload_markdown(self, path: str) -> str:
-        name = os.path.basename(path)
-        boundary = "----maya" + uuid.uuid4().hex
-        content = open(path, "rb").read()
-        body = b"".join(
-            [
-                f"--{boundary}\r\n".encode(),
-                f'Content-Disposition: form-data; name="file"; filename="{name}"\r\n'.encode(),
-                b"Content-Type: text/markdown\r\n\r\n",
-                content,
-                b"\r\n",
-                f"--{boundary}--\r\n".encode(),
-            ]
-        )
-        uploaded = self.call(
-            "POST", "/api/v1/files/", timeout=600, raw=body,
-            content_type=f"multipart/form-data; boundary={boundary}",
-        )
-        if not uploaded or not uploaded.get("id"):
-            raise RuntimeError(f"upload failed for {name}: {uploaded}")
-        file_id = uploaded["id"]
-        for _ in range(900):
-            status = self.call("GET", f"/api/v1/files/{file_id}/process/status", timeout=120)
-            if status.get("status") == "completed":
-                break
-            if status.get("status") == "failed":
-                raise RuntimeError(f"processing failed for {name}")
-            time.sleep(2)
-        print(f"uploaded + processed {name} -> {file_id}")
-        return file_id
-
-    def link_file(self, knowledge_id: str, file_id: str, name: str):
-        try:
-            self.call("POST", f"/api/v1/knowledge/{knowledge_id}/file/add", {"file_id": file_id}, timeout=300)
-            print(f"linked {name}")
-        except RuntimeError as error:
-            if "Duplicate content" in str(error):
-                print(f"already in knowledge: {name}")
-            else:
-                raise
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--webui-url", default=os.environ.get("MAYA_URL", "http://127.0.0.1:3080"))
-    parser.add_argument("--admin-email", default="armin@local")
-    parser.add_argument("--admin-password", default=os.environ.get("MAYA_ADMIN_PASSWORD", "123456"))
-    parser.add_argument("--md-dir", default=os.path.join(".armin", "rag", "generated", "reports-access"))
-    parser.add_argument("--knowledge-name", default="ERP Reports Access")
-    parser.add_argument("--knowledge-description",
-                        default="Canonical ERP report catalog with report name, webpage address, and URL")
-    parser.add_argument("--tool-path", default=os.path.join(".armin", "rag", "tools", "qdrant_erp_search.py"))
-    parser.add_argument("--tool-id", default="qdrant_erp_search",
-                        help="alphanumerics and underscores only - Open WebUI rejects anything else")
-    parser.add_argument("--filter-path", default=os.path.join(".armin", "rag", "filters", "erp_reports_inject.py"))
-    parser.add_argument("--filter-id", default="erp_reports_inject",
-                        help="alphanumerics and underscores only - Open WebUI rejects anything else")
-    parser.add_argument("--parent-knowledge-name", default="ERP Reports",
-                        help="models carrying this knowledge also get the new knowledge + tool")
-    parser.add_argument("--skip-uploads", action="store_true",
-                        help="keep the already-uploaded markdown and only refresh tool/filter + model wiring")
-    parser.add_argument("--models", nargs="*", default=None,
-                        help="limit the model wiring to these model ids (default: every shared-RAG model)")
-    args = parser.parse_args()
-
-    maya = Maya(args.webui_url, args.admin_email, args.admin_password)
-    maya.login()
-
-    knowledge_id = maya.ensure_knowledge(args.knowledge_name, args.knowledge_description)
-    # This Open WebUI build returns files=null on the detail route; the /files route is authoritative.
-    linked_items = maya.call("GET", f"/api/v1/knowledge/{knowledge_id}/files", timeout=120).get("items") or []
-    already = {(item.get("meta") or {}).get("name") or item.get("filename") for item in linked_items}
-
-    file_ids = []
-    for filename in MD_FILES:
-        path = os.path.join(args.md_dir, filename)
-        if not os.path.exists(path):
-            raise SystemExit(f"missing markdown: {path} (run scripts/generate_reports_access_md.py first)")
-        current = maya.find_file(filename)
-        if args.skip_uploads and current and filename in already:
-            print(f"keeping existing upload {filename} ({current['id']})")
-            file_ids.append(current["id"])
-            continue
-        if current:
-            maya.call("DELETE", f"/api/v1/files/{current['id']}", timeout=120)
-            print(f"removed stale upload {filename}")
-        file_ids.append(maya.upload_markdown(path))
-        maya.link_file(knowledge_id, file_ids[-1], filename)
-
-    maya.call("POST", f"/api/v1/knowledge/{knowledge_id}/update",
-              {"name": args.knowledge_name, "description": args.knowledge_description,
-               "data": {"file_ids": file_ids}}, timeout=120)
-
-    # Remove the old access matrices only after the canonical catalog is linked.
-    if not args.skip_uploads:
-        stale_ids = set()
-        for item in linked_items:
-            filename = (item.get("meta") or {}).get("name") or item.get("filename")
-            if filename in LEGACY_MD_FILES and item.get("id"):
-                stale_ids.add(item["id"])
-        for filename in LEGACY_MD_FILES:
-            stale = maya.find_file(filename)
-            if stale and stale.get("id"):
-                stale_ids.add(stale["id"])
-        for file_id in stale_ids:
-            maya.call("DELETE", f"/api/v1/files/{file_id}", timeout=120)
-            print(f"removed legacy report catalog file {file_id}")
-
-    maya.call("POST", f"/api/v1/knowledge/{knowledge_id}/access/update",
-              {"id": knowledge_id,
-               "access_grants": [{"principal_type": "user", "principal_id": "*", "permission": "read"}]}, timeout=120)
-    linked = len(maya.call("GET", f"/api/v1/knowledge/{knowledge_id}/files", timeout=120).get("items", []))
-    print(f"knowledge files: {linked}")
-    if linked != len(MD_FILES):
-        raise SystemExit(f"knowledge '{args.knowledge_name}' has {linked} files, expected {len(MD_FILES)}")
-
-    # --- tool ---------------------------------------------------------------
-    if not os.path.exists(args.tool_path):
-        raise SystemExit(f"missing tool source: {args.tool_path}")
-    tool_body = {
-        "id": args.tool_id,
-        "name": "Qdrant ERP Report Access Search",
-        "content": open(args.tool_path, encoding="utf-8").read(),
-        "meta": {"description": "Semantic search over the ERP report-access vectors in Qdrant (collection maya, tenant erp_reports)."},
-        "access_grants": [{"principal_type": "user", "principal_id": "*", "permission": "read"}],
-    }
-    existing_tool = None
-    try:
-        existing_tool = maya.call("GET", f"/api/v1/tools/id/{args.tool_id}", timeout=60)
-    except RuntimeError:
-        pass
-    if existing_tool and existing_tool.get("id"):
-        maya.call("POST", f"/api/v1/tools/id/{args.tool_id}/update", tool_body, timeout=120)
-        print(f"updated tool {args.tool_id}")
-    else:
-        maya.call("POST", "/api/v1/tools/create", tool_body, timeout=120)
-        print(f"created tool {args.tool_id}")
-
-    # --- global filter (ERP vector inject for every model) -------------------
-    if not os.path.exists(args.filter_path):
-        raise SystemExit(f"missing filter source: {args.filter_path}")
-    filter_body = {
-        "id": args.filter_id,
-        "name": "ERP Reports Vector Inject",
-        "content": open(args.filter_path, encoding="utf-8").read(),
+def push_filter(maya: Maya, filter_id: str, filter_path: str, dry_run: bool) -> dict:
+    """Create/update the global BM25 filter and return its row."""
+    if not os.path.exists(filter_path):
+        raise SystemExit(f"missing filter source: {filter_path}")
+    row = {
+        "id": filter_id,
+        "name": "ERP Reports BM25 Inject",
+        "content": open(filter_path, encoding="utf-8").read(),
         "meta": {
             "description": (
-                "Global inlet: rewrite user text, search the ERP tenant of the shared Qdrant collection, "
-                "inject NameSystem/ParentSystemtxt/URL candidates (no tool call)."
+                "Global inlet: rewrite the user text, rank the report catalog with BM25 and "
+                "inject name/address/link candidates (no vector DB, no tool call)."
             )
         },
     }
-    existing_filter = None
-    try:
-        existing_filter = maya.call("GET", f"/api/v1/functions/id/{args.filter_id}", timeout=60)
-    except RuntimeError:
-        pass
-    if existing_filter and existing_filter.get("id"):
-        maya.call("POST", f"/api/v1/functions/id/{args.filter_id}/update", filter_body, timeout=120)
-        print(f"updated filter {args.filter_id}")
-        filter_row = maya.call("GET", f"/api/v1/functions/id/{args.filter_id}", timeout=60)
-    else:
-        maya.call("POST", "/api/v1/functions/create", filter_body, timeout=120)
-        print(f"created filter {args.filter_id}")
-        filter_row = maya.call("GET", f"/api/v1/functions/id/{args.filter_id}", timeout=60)
-    # Create defaults to inactive / non-global; toggle until both flags are on.
-    if not filter_row.get("is_active"):
-        filter_row = maya.call("POST", f"/api/v1/functions/id/{args.filter_id}/toggle", timeout=60)
-        print(f"activated filter {args.filter_id}")
-    if not filter_row.get("is_global"):
-        filter_row = maya.call("POST", f"/api/v1/functions/id/{args.filter_id}/toggle/global", timeout=60)
-        print(f"set filter {args.filter_id} global")
-    print(
-        f"filter {args.filter_id}: active={filter_row.get('is_active')} "
-        f"global={filter_row.get('is_global')} type={filter_row.get('type')}"
-    )
+    if dry_run:
+        print(f"[dry-run] would upsert filter {filter_id} ({len(row['content'])} bytes)")
+        return {"id": filter_id, "is_active": True, "is_global": True}
 
-    # --- attach to shared-RAG models ---------------------------------------
-    # The /api/models listing has no meta, so each candidate is read in full first.
-    listing = maya.call("GET", "/api/models", timeout=600).get("data", [])
-    touched = 0
-    for entry in listing:
-        model_id = entry["id"]
-        if args.models and model_id not in args.models:
+    try:
+        current = maya.call("GET", f"/api/v1/functions/id/{filter_id}", timeout=60)
+    except RuntimeError:
+        current = None
+    if current and current.get("id"):
+        maya.call("POST", f"/api/v1/functions/id/{filter_id}/update", row)
+        print(f"updated filter {filter_id}")
+    else:
+        maya.call("POST", "/api/v1/functions/create", row)
+        print(f"created filter {filter_id}")
+
+    # Update resets nothing, but a freshly created filter starts inactive / non-global.
+    current = maya.call("GET", f"/api/v1/functions/id/{filter_id}", timeout=60)
+    if not current.get("is_active"):
+        current = maya.call("POST", f"/api/v1/functions/id/{filter_id}/toggle", timeout=60)
+        print(f"activated filter {filter_id}")
+    if not current.get("is_global"):
+        current = maya.call("POST", f"/api/v1/functions/id/{filter_id}/toggle/global", timeout=60)
+        print(f"set filter {filter_id} global")
+    return current
+
+
+def retire_tools(maya: Maya, tool_ids: tuple[str, ...], dry_run: bool) -> None:
+    """Delete the retired tools and unlink their ids from every model."""
+    for tool_id in tool_ids:
+        try:
+            maya.call("GET", f"/api/v1/tools/id/{tool_id}", timeout=60)
+        except RuntimeError:
+            print(f"tool {tool_id} already gone")
             continue
+        if dry_run:
+            print(f"[dry-run] would delete tool {tool_id}")
+            continue
+        maya.call("DELETE", f"/api/v1/tools/id/{tool_id}/delete", timeout=60)
+        print(f"deleted tool {tool_id}")
+
+    if dry_run:
+        return
+    touched = 0
+    for entry in maya.call("GET", "/api/models", timeout=600).get("data", []):
+        model_id = entry["id"]
         try:
             detail = maya.call("GET", "/api/v1/models/model?id=" + urllib.parse.quote(model_id), timeout=120)
         except RuntimeError:
@@ -285,24 +139,11 @@ def main() -> int:
         if not detail or not detail.get("id"):
             continue
         meta = dict(detail.get("meta") or {})
-        knowledge = list(meta.get("knowledge") or [])
-        names = [item.get("name") for item in knowledge]
-        if args.parent_knowledge_name not in names:
+        tool_ids_now = list(meta.get("toolIds") or [])
+        cleaned = [tid for tid in tool_ids_now if tid not in tool_ids]
+        if cleaned == tool_ids_now:
             continue
-        if args.knowledge_name not in names:
-            knowledge.append({"id": knowledge_id, "name": args.knowledge_name, "type": "collection"})
-        meta["knowledge"] = knowledge
-        tool_ids = list(meta.get("toolIds") or [])
-        # Free-tier OpenRouter models often invent fake tool XML instead of native
-        # function calling; the global filter erp_reports_inject still feeds them.
-        # Only those are excluded - the paid openrouter/auto router keeps the tool.
-        free_ref = f"{model_id} {detail.get('base_model_id') or ''}".lower()
-        skip_tool = "-free" in free_ref or "/free" in free_ref
-        if skip_tool:
-            tool_ids = [t for t in tool_ids if t != args.tool_id]
-        elif args.tool_id not in tool_ids:
-            tool_ids.append(args.tool_id)
-        meta["toolIds"] = tool_ids
+        meta["toolIds"] = cleaned
         maya.call("POST", "/api/v1/models/model/update", {
             "id": detail["id"],
             "name": detail["name"],
@@ -310,33 +151,50 @@ def main() -> int:
             "meta": meta,
             "params": detail.get("params") or {},
             "access_grants": [{"principal_type": "user", "principal_id": "*", "permission": "read"}],
-            "is_active": True,
+            "is_active": detail.get("is_active", True),
         }, timeout=120)
         touched += 1
-    print(f"models wired with knowledge + tool: {touched}")
+    print(f"models unlinked from retired tools: {touched}")
 
-    # --- report -------------------------------------------------------------
-    verify = maya.call("GET", f"/api/v1/tools/id/{args.tool_id}", timeout=60)
-    verify_filter = maya.call("GET", f"/api/v1/functions/id/{args.filter_id}", timeout=60)
-    sample = None
-    try:
-        sample = maya.call("GET", "/api/v1/models/model?id=server-qwen-2.5-2b", timeout=120)
-    except RuntimeError:
-        pass
-    meta = (sample or {}).get("meta") or {}
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--webui-url", default=os.environ.get("MAYA_URL", "http://127.0.0.1:3080"))
+    parser.add_argument("--admin-email", default="armin@local")
+    parser.add_argument("--admin-password", default=os.environ.get("MAYA_ADMIN_PASSWORD", "123456"))
+    parser.add_argument("--filter-path", default=os.path.join(".armin", "rag", "filters", "erp_reports_inject.py"))
+    parser.add_argument("--filter-id", default="erp_reports_inject",
+                        help="alphanumerics and underscores only - Open WebUI rejects anything else")
+    parser.add_argument("--catalog", default=CATALOG_PATH)
+    parser.add_argument("--dry-run", action="store_true", help="print the changes without applying them")
+    args = parser.parse_args()
+
+    if not os.path.exists(args.catalog):
+        raise SystemExit(
+            f"missing BM25 catalog: {args.catalog}\n"
+            "run: python scripts/generate_reports_access_md.py "
+            '--json "<rep_converted.deduped.json>" --out ".armin/rag/generated/reports-access"'
+        )
+    corpus = json.load(open(args.catalog, encoding="utf-8"))
+    print(f"catalog: {args.catalog} rows={corpus.get('count')} source={corpus.get('generated_from')}")
+
+    maya = Maya(args.webui_url, args.admin_email, args.admin_password)
+    maya.login()
+
+    row = push_filter(maya, args.filter_id, args.filter_path, args.dry_run)
+    retire_tools(maya, RETIRED_TOOL_IDS, args.dry_run)
+
     print("verify:")
-    print(f"  tool id           : {verify.get('id')}")
-    print(
-        f"  filter id         : {verify_filter.get('id')} "
-        f"active={verify_filter.get('is_active')} global={verify_filter.get('is_global')}"
-    )
-    print(f"  knowledge         : {knowledge_id} ({linked} files)")
-    print(f"  server-qwen-2.5-2b: knowledge={[k.get('name') for k in meta.get('knowledge', [])]} tools={meta.get('toolIds')}")
-    if not verify_filter.get("is_active") or not verify_filter.get("is_global"):
+    print(f"  filter {row.get('id')}: active={row.get('is_active')} global={row.get('is_global')} "
+          f"type={row.get('type')}")
+    print(f"  catalog rows      : {corpus.get('count')}")
+    if not args.dry_run and (not row.get("is_active") or not row.get("is_global")):
         raise SystemExit(
             f"filter {args.filter_id} must be active+global "
-            f"(active={verify_filter.get('is_active')} global={verify_filter.get('is_global')})"
+            f"(active={row.get('is_active')} global={row.get('is_global')})"
         )
+    if not args.dry_run:
+        print("  next: .armin/rag/sync-maya.ps1 pushes the prompt + skill to the four models")
     return 0
 
 

@@ -18,6 +18,11 @@ services:
       # client module is overridden from .armin/patch/ (keep it in sync with the
       # image tag below when upgrading).
       - ./.armin/patch/qdrant_multitenancy.py:/app/backend/open_webui/retrieval/vector/dbs/qdrant_multitenancy.py:ro
+      # BM25 report catalog: the global filter erp_reports_inject ranks this file on
+      # every chat turn. Mounted read-only so a regenerated catalog (scripts/
+      # generate_reports_access_md.py) is picked up without touching the container,
+      # and the filter has no Jupyter/database dependency to fetch it.
+      - ./.armin/rag/generated/reports-access:/app/backend/data/maya-catalog:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -33,10 +38,10 @@ services:
       OPENAI_API_CONFIGS: ${OPENAI_API_CONFIGS:-}
       # Ollama stays out of the model picker: only the four public models exist.
       ENABLE_OLLAMA_API: ${ENABLE_OLLAMA_API:-false}
-      # Vector DB = Qdrant (Docker, host publish :6333) with exactly ONE collection
-      # named "<QDRANT_COLLECTION_PREFIX>" (= maya): knowledge (.md), file chunks and
-      # the ERP rows (scripts/qdrant_ingest_erp_reports.py) share it, separated by
-      # tenant_id by the patched client above.
+      # Vector DB: NOT used for report retrieval any more - the ERP dataset is ranked
+      # with BM25 from the mounted catalog. Qdrant (host publish :6333) stays wired
+      # only because Open WebUI requires a valid VECTOR_DB at startup; knowledge and
+      # file embedding paths are unused (no model has a knowledge base attached).
       VECTOR_DB: ${VECTOR_DB:-qdrant}
       QDRANT_URI: ${QDRANT_URI:-http://host.docker.internal:6333}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}

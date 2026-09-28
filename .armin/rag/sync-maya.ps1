@@ -1,20 +1,22 @@
-# Sync Maya: RAG knowledge, the four public models, skills, users.
-# RAG: C:\Users\armin\TFS\rag-for-ai\reports\
+﻿# Sync Maya: skills, the four public models, users.
+# RAG: lexical BM25 over the generated report catalog - no vector DB, no knowledge
+# upload. The catalog is read by the global filter erp_reports_inject from
+# .armin/rag/generated/reports-access/reports-access.bm25.json (mounted by compose,
+# regenerate with scripts/generate_reports_access_md.py).
 #
 # Models: exactly four, everything else stays hidden/disabled.
 #   OpenRouter-Auto            -> openrouter/auto        (OpenRouter, OPENROUTER_API_KEY)
 #   OpenCode-Mimo-v2.6-Flash   -> mimo-v2.6-flash        (OpenCode Go, OPENCODE_API_KEY)
 #   OpenCode-DeepSeek-4.1-Flash-> deepseek-v4.1-flash    (OpenCode Go)
 #   OpenCode-GPT-6-Luna        -> gpt-6-luna             (OpenCode Go, Responses API only)
-# All four share the same RAG: knowledge (.md) + the ERP vector rows, and Qdrant
-# holds exactly one collection ("maya") - see scripts/qdrant_merge_collections.py.
+# All four share the same retrieval: their system prompt + the find-erp-report skill,
+# fed by the BM25 candidates the global filter injects on every turn.
 
 param(
   [string]$WebUiUrl = "http://127.0.0.1:3080",
   [string]$AdminEmail = "armin@local",
   [string]$AdminPassword = "dopadopa123",
   [string]$SharedPassword = "123456",
-  [string]$RagDir = "C:\Users\armin\TFS\rag-for-ai\reports",
   [string]$KnowledgeName = "ERP Reports",
   # Keys come from the environment (never from .env / git).
   [string]$OpenRouterBaseUrl = "https://openrouter.ai/api/v1",
@@ -25,11 +27,6 @@ param(
   # Go wants a stable session id per conversation; {{CHAT_ID}} is substituted
   # per request by Open WebUI (empty chat id -> "maya-").
   [string]$OpenCodeSession = "maya-{{CHAT_ID}}",
-  [string]$QdrantUrl = "http://localhost:6333",
-  [string]$QdrantCollection = "maya",
-  # Re-embed the .md files (purges their vectors in Qdrant first). Off by default:
-  # linking an already-linked file again duplicates chunks in the shared collection.
-  [switch]$RefreshKnowledge,
   [string]$OllamaLocalUrl = "http://host.docker.internal:11434",
   [string]$OllamaServerUrl = "http://10.10.16.118:11434"
 )
@@ -39,27 +36,16 @@ $ErrorActionPreference = "Stop"
 if (-not $OpenRouterKey) { throw "OPENROUTER_API_KEY is not set in the environment" }
 if (-not $OpenCodeKey) { throw "OPENCODE_API_KEY is not set in the environment" }
 
-$wantedNames = @("reports-index.md", "reports.md")
-$files = @(
-  (Join-Path $RagDir "reports-index.md"),
-  (Join-Path $RagDir "reports.md")
-)
-foreach ($f in $files) {
-  if (-not (Test-Path -LiteralPath $f)) { throw "Missing RAG file: $f" }
-}
-
 $ragSystem = @"
 You are Maya's ERP report finder.
-Retrieval order (do not skip or invent):
-1) Prefer the injected system block "### ERP vector candidates (collection maya)" — that IS the vector search; treat it as done. Never emit fake tool-call XML.
-2) Treat the listed rows as potential candidates (NameSystem + ParentSystemtxt).
-3) Keep all relevant candidates; drop clear mismatches only.
-4) All user-facing messages must be in Persian. Preserve report names, page paths, and URLs as provided by the source.
-5) Reply with a Markdown table with exactly three Persian columns: نام گزارش, آدرس در صفحه, and پیوند.
-   Use NameSystem as the report name and ParentSystemtxt as the page path/address. Put a clickable Persian link in پیوند using http://erp.dpdc.co:8880/<URL-encoded-ParentSystemtxt>, preserving / and - in the URL path. If ParentSystemtxt is missing, show آدرس موجود نیست and provide no link. Do not include score or employee.
+Retrieval is lexical (BM25) over the report catalog. There is no vector search and no tool to call:
+1) The system block "### ERP report candidates (BM25)" injected at the start of every turn IS the search result - treat the search as already done. Never emit fake tool-call XML.
+2) The block lists candidate rows (نام گزارش, آدرس در صفحه, پیوند). Keep every row that answers the user's request and drop clear mismatches - BM25 ranks by wording, so a shared word is not proof.
+3) Use only the rows in the block. Never invent report names, addresses or URLs, and never rebuild or re-encode a link: copy the پیوند cell exactly as given.
+4) All user-facing messages must be in Persian. Preserve report names, page addresses, and URLs exactly as provided.
+5) Reply with a Markdown table with exactly three columns: نام گزارش, آدرس در صفحه, and پیوند - one row per selected candidate. If nothing matches, say so in Persian and invent no rows. If the address is missing, show آدرس موجود نیست and provide no link. Do not include score or employee.
 6) Only answer within ERP report-finding and report-access scope. For unrelated requests, do not answer the topic; reply in Persian: «متأسفم، نمی‌توانم درباره این موضوع پاسخ بدهم؛ رئیسم، آرمین، اجازه نمی‌دهد، هرچند اطلاعات زیادی دارم.»
 7) End every report response, including no-match responses, with «{نام کاربر} عزیز، آیا به کمک بیشتری نیاز دارید؟». Use the user's name from the conversation/profile when available; never guess a name. If unavailable, ask «آیا به کمک بیشتری نیاز دارید؟».
-Optional: tool search_erp_report_access or reports-access-*.md / reports-index.md / reports.md only to confirm details when present — never invent rows. If neither candidates nor context exist, say so in Persian.
 "@
 
 # Display name -> workspace id -> base model id (OpenAI-compatible connection id).
@@ -88,23 +74,21 @@ $skills = @(
   @{
     Id = "find-erp-report"
     Name = "Find ERP Report"
-    Description = "Locate ERP reports from the injected ERP vector candidates (collection maya) by Persian title, English page name, or menu path. Prefer injected candidates; use reports-index.md only as secondary confirm."
+    Description = "Locate ERP reports from the BM25 candidates the global filter injects (نام گزارش / آدرس در صفحه / پیوند) by Persian title, English page name, or menu path."
     # Single-quoted here-string: backticks in markdown must not be PowerShell escapes (`r = CR).
     Content = @'
 # Find ERP Report
 
-Order: injected ERP vector candidates first (counts as vector search), then .md files.
+Retrieval is lexical BM25 over the report catalog - there is no vector search and no tool to call. The global filter already ran the search and injected its candidates, so the search is done before you answer.
 
-1. Prefer the system block "### ERP vector candidates (collection maya)". That IS the vector search - treat it as done. Never emit fake tool-call XML. Tool search_erp_report_access is optional for who-can-access only.
-2. Treat listed NameSystem / ParentSystemtxt rows as candidates; keep all relevant ones, drop clear mismatches only.
-3. **reports-index.md** / **reports.md** are secondary confirmation only, and only when needed - never invent rows from them.
-4. Persian titles: answer from the injected candidates (semantic match absorbs spelling and kashida variations). Also accept English page names (e.g. CustomerCreditIncreaseReport).
-5. If nothing matches, say so - do not invent report names or titles that are not in the candidates. Never refuse solely because you did not invoke a tool when candidates are already present.
-6. Only answer within ERP report-finding and report-access scope. For unrelated requests, do not answer the topic; reply in Persian: «متأسفم، نمی‌توانم درباره این موضوع پاسخ بدهم؛ رئیسم، آرمین، اجازه نمی‌دهد، هرچند اطلاعات زیادی دارم.»
-7. All user-facing messages must be in Persian. Preserve report names, page paths, and URLs as provided by the source.
-8. Reply with a Markdown table with exactly three Persian columns: نام گزارش, آدرس در صفحه, and پیوند.
-   Use NameSystem as the report name and ParentSystemtxt as the page path/address. Put a clickable Persian link in پیوند using http://erp.dpdc.co:8880/<URL-encoded-ParentSystemtxt>, preserving / and - in the URL path. If ParentSystemtxt is missing, show آدرس موجود نیست and provide no link. Do not include score or employee.
-9. End every report response, including no-match responses, with «{نام کاربر} عزیز، آیا به کمک بیشتری نیاز دارید؟». Use the user's name from the conversation/profile when available; never guess a name. If unavailable, ask «آیا به کمک بیشتری نیاز دارید؟».
+1. Read the system block "### ERP report candidates (BM25)". That IS the search result. Never emit fake tool-call XML and never claim you searched.
+2. Treat the listed rows as candidates: keep every row that answers the request, drop clear mismatches. BM25 matches on wording, so a shared word is not proof - check the report name really fits.
+3. Never invent report names, addresses or URLs, and never rebuild or re-encode a link. Copy the پیوند cell exactly as it appears in the candidates.
+4. If nothing matches, say so in Persian. Do not invent report names or titles that are not in the candidates.
+5. All user-facing messages must be in Persian. Preserve report names, page addresses and URLs exactly as provided.
+6. Reply with a Markdown table with exactly three columns: نام گزارش | آدرس در صفحه | پیوند - one row per selected candidate. If the address is missing, write آدرس موجود نیست and provide no link. Do not include score or employee.
+7. Only answer within ERP report-finding and report-access scope. For unrelated requests, do not answer the topic; reply in Persian: «متأسفم، نمی‌توانم درباره این موضوع پاسخ بدهم؛ رئیسم، آرمین، اجازه نمی‌دهد، هرچند اطلاعات زیادی دارم.»
+8. End every report response, including no-match responses, with «{نام کاربر} عزیز، آیا به کمک بیشتری نیاز دارید؟». Use the user's name from the conversation/profile when available; never guess a name. If unavailable, ask «آیا به کمک بیشتری نیاز دارید؟».
 '@
   }
 )
@@ -195,153 +179,12 @@ Invoke-Json POST "$WebUiUrl/ollama/config/update" $auth @{
 } | Out-Null
 Write-Host "Ollama connection disabled (host=$OllamaLocalUrl server=$OllamaServerUrl kept for later)"
 
-# --- knowledge ---
-$kbList = Invoke-Json GET "$WebUiUrl/api/v1/knowledge/" $auth $null
-$kb = @($kbList.items) | Where-Object { $_.name -eq $KnowledgeName } | Select-Object -First 1
-if (-not $kb) {
-  $kb = Invoke-Json POST "$WebUiUrl/api/v1/knowledge/create" $auth @{
-    name = $KnowledgeName
-    description = "ERP report catalog. Synced from $RagDir"
-  }
-  Write-Host "Created knowledge $($kb.id)"
-} else {
-  Write-Host "Using knowledge $($kb.id)"
-}
-$kbId = $kb.id
-
-# Every public model gets the whole vector store: all knowledge bases (the .md
-# files live in there), so all four models reach the vector DB and the .md docs.
-$allKnowledge = @((Invoke-Json GET "$WebUiUrl/api/v1/knowledge/" $auth $null).items) |
-  ForEach-Object { @{ id = $_.id; name = $_.name; type = "collection" } }
-Write-Host ("Knowledge attached to every model: " + (($allKnowledge | ForEach-Object { $_.name }) -join ", "))
-
-function Get-OpenWebUiFiles {
-  return @((Invoke-Json GET "$WebUiUrl/api/v1/files/" $auth $null).items)
-}
-
-function Find-FileByName([string]$name) {
-  $matches = @(Get-OpenWebUiFiles | Where-Object {
-    $_.filename -eq $name -or ($_.meta -and $_.meta.name -eq $name)
-  })
-  foreach ($candidate in $matches) {
-    try {
-      $st = Invoke-Json GET "$WebUiUrl/api/v1/files/$($candidate.id)/process/status" $auth $null
-      if ($st.status -eq "completed") { return $candidate }
-    } catch { }
-  }
-  return $null
-}
-
-function Wait-FileProcessed([string]$fileId) {
-  for ($i = 0; $i -lt 180; $i++) {
-    $st = Invoke-Json GET "$WebUiUrl/api/v1/files/$fileId/process/status" $auth $null
-    if ($st.status -eq "completed") { return }
-    if ($st.status -eq "failed") { throw "Processing failed for $fileId" }
-    Start-Sleep -Seconds 2
-  }
-  throw "Timed out processing $fileId"
-}
-
-function Add-FileToKnowledge([string]$fileId, [string]$name) {
-  try {
-    Invoke-Json POST "$WebUiUrl/api/v1/knowledge/$kbId/file/add" $auth @{ file_id = $fileId } | Out-Null
-    Write-Host "Linked $name"
-  } catch {
-    $msg = $_.ErrorDetails.Message
-    if ($msg -match "Duplicate content") {
-      Write-Host "Already in knowledge: $name"
-    } else { throw }
-  }
-}
-
-# Link the .md files ONCE. Re-adding an already-linked file makes Open WebUI
-# re-embed it while file/remove leaves the old chunks behind, so every run used
-# to duplicate vectors in the shared collection. Linked files are skipped
-# unless -RefreshKnowledge is passed, which purges the knowledge/file tenants
-# in Qdrant first so the re-embed starts from a clean slate.
-# The knowledge detail route returns files=null in this build, so read the
-# authoritative /files route (same as scripts/sync_maya_reports_access.py) -
-# with $detail.files the map stayed empty and every run re-added (re-embedded)
-# the files, duplicating their vectors in the shared collection.
-$linkedResp = Invoke-Json GET "$WebUiUrl/api/v1/knowledge/$kbId/files" $auth $null
-$linkedByName = @{}
-foreach ($existing in @($linkedResp.items)) {
-  if ($existing.meta -and $existing.meta.name) { $linkedByName[$existing.meta.name] = $existing.id }
-}
-
-if ($RefreshKnowledge) {
-  foreach ($name in $wantedNames) {
-    if ($linkedByName.ContainsKey($name)) {
-      try {
-        Invoke-Json POST "$WebUiUrl/api/v1/knowledge/$kbId/file/remove" $auth @{ file_id = $linkedByName[$name] } | Out-Null
-        Write-Host "Removed $name (refresh)"
-      } catch {
-        Write-Warning "Could not remove $name : $($_.Exception.Message)"
-      }
-    }
-  }
-  $staleTenants = @($kbId) + @($linkedByName.Values | ForEach-Object { "file-$_" })
-  foreach ($tenant in $staleTenants) {
-    try {
-      $purge = @{ filter = @{ must = @(@{ key = "tenant_id"; match = @{ value = $tenant } }) } } | ConvertTo-Json -Depth 6
-      Invoke-RestMethod -Uri "$QdrantUrl/collections/$QdrantCollection/points/delete?wait=true" `
-        -Method Post -ContentType "application/json" -Body $purge | Out-Null
-      Write-Host "Purged stale vectors of tenant $tenant"
-    } catch {
-      Write-Warning "Purge of tenant $tenant failed: $($_.Exception.Message)"
-    }
-  }
-  $linkedByName.Clear()
-}
-
-$linkedFileIds = @()
-foreach ($path in $files) {
-  $name = [IO.Path]::GetFileName($path)
-  if ($linkedByName.ContainsKey($name)) {
-    Write-Host "Already linked: $name ($($linkedByName[$name]))"
-    $linkedFileIds += $linkedByName[$name]
-    continue
-  }
-
-  $existing = Find-FileByName $name
-  if ($existing) {
-    Write-Host "Reusing $name ($($existing.id))"
-    Wait-FileProcessed $existing.id
-    Add-FileToKnowledge $existing.id $name
-    $linkedFileIds += $existing.id
-    continue
-  }
-
-  Write-Host "Uploading $name ..."
-  $raw = & curl.exe -sS -X POST "$WebUiUrl/api/v1/files/" `
-    -H "Authorization: Bearer $token" `
-    -H "Accept: application/json" `
-    -F "file=@$path;filename=$name;type=text/markdown"
-  $uploaded = $raw | ConvertFrom-Json
-  if (-not $uploaded.id) { throw "Upload failed for $name : $raw" }
-  Wait-FileProcessed $uploaded.id
-  Add-FileToKnowledge $uploaded.id $name
-  $linkedFileIds += $uploaded.id
-}
-
-Invoke-Json POST "$WebUiUrl/api/v1/knowledge/$kbId/update" $auth @{
-  name = $KnowledgeName
-  description = "ERP report catalog. Synced from $RagDir"
-  data = @{ file_ids = $linkedFileIds }
-} | Out-Null
-
-$verifyFiles = Invoke-Json GET "$WebUiUrl/api/v1/knowledge/$kbId/files" $auth $null
-$fileCount = @($verifyFiles.items).Count
-Write-Host "Knowledge files: $fileCount"
-if ($fileCount -lt 1) { throw "Knowledge has no files after sync" }
-
-Invoke-Json POST "$WebUiUrl/api/v1/knowledge/$kbId/access/update" $auth @{
-  id = $kbId
-  access_grants = @(
-    @{ principal_type = "user"; principal_id = "*"; permission = "read" }
-  )
-} | Out-Null
-Write-Host "Knowledge public read: $KnowledgeName"
+# --- knowledge (retired) ---
+# The .md catalog used to be uploaded here and embedded into the vector DB for
+# retrieval. Retrieval is BM25 now and the filter reads the catalog straight off
+# disk (docker-compose.yml mounts .armin/rag/generated/reports-access), so there is
+# nothing to upload and no embedding step left in this script. The ERP knowledge
+# bases that still exist in Open WebUI are no longer attached to any model.
 
 # --- skills ---
 $skillIds = @()
@@ -398,11 +241,16 @@ foreach ($legacyId in $legacySkillIds) {
 # --- models ---
 function Upsert-WorkspaceModel($m) {
   $meta = @{
-    description = "$($m.Name) + shared RAG ($KnowledgeName). Base=$($m.Base)"
+    description = "$($m.Name) + BM25 report candidates ($KnowledgeName catalog). Base=$($m.Base)"
     hidden = $false
-    knowledge = $(if (@($allKnowledge).Count -gt 0) { @($allKnowledge) } else { @(@{ id = $kbId; name = $KnowledgeName; type = "collection" }) })
+    # No knowledge base is attached any more: retrieval happens in the global
+    # filter (BM25) and knowledge search would need the vector DB we retired.
+    knowledge = @()
     skillIds = $skillIds
   }
+  # function_calling stays "legacy" on purpose: that is what inlines the skill
+  # content into the system message. With builtin tools enabled Open WebUI only
+  # ships a skill manifest and the model has to call view_skill.
   $params = @{
     function_calling = "legacy"
     system = $(if ($m.System) { $m.System } else { $ragSystem })
@@ -582,18 +430,17 @@ try {
   Write-Warning "Could not change $AdminEmail password (may already be shared): $($_.Exception.Message)"
 }
 
-# --- verify: exactly one Qdrant collection ---
+# --- verify: the BM25 catalog the filter reads ---
 try {
-  $cols = @((Invoke-RestMethod -Uri "$QdrantUrl/collections" -TimeoutSec 15).result.collections |
-    ForEach-Object { $_.name })
-  if ($cols.Count -eq 1 -and $cols[0] -eq $QdrantCollection) {
-    Write-Host "Qdrant: exactly one collection '$QdrantCollection'"
+  $catalog = Join-Path $PSScriptRoot "generated\reports-access\reports-access.bm25.json"
+  if (-not (Test-Path -LiteralPath $catalog)) {
+    Write-Warning "BM25 catalog missing: $catalog (run scripts/generate_reports_access_md.py)"
   } else {
-    Write-Warning ("Qdrant has " + $cols.Count + " collections [" + ($cols -join ", ") +
-      "]; expected only '$QdrantCollection'. Merge with python scripts/qdrant_merge_collections.py --delete-sources")
+    $rows = (Get-Content -LiteralPath $catalog -Raw | ConvertFrom-Json).count
+    Write-Host "BM25 catalog: $rows report rows ($catalog)"
   }
 } catch {
-  Write-Warning "Qdrant collection check failed: $($_.Exception.Message)"
+  Write-Warning "BM25 catalog check failed: $($_.Exception.Message)"
 }
 
 # --- verify: exactly the four public models ---
@@ -615,9 +462,9 @@ try {
   Write-Warning "Model visibility check failed: $($_.Exception.Message)"
 }
 
-Write-Host "Done. Models + RAG + skills + users ready."
+Write-Host "Done. Models + skills + users ready."
 Write-Host "  UI: http://maya.local/"
 Write-Host "  Path bookmarks: http://pc-armin/maya  http://10.20.9.59/maya  (302 -> http://maya.local/)"
 Write-Host "  Models: OpenRouter-Auto, OpenCode-Mimo-v2.6-Flash, OpenCode-DeepSeek-4.1-Flash, OpenCode-GPT-6-Luna"
-Write-Host "  RAG: knowledge (.md) attached to every model + ERP rows injected by global filter erp_reports_inject (collection '$QdrantCollection')."
-Write-Host "  Vectors: one Qdrant collection only - scripts/qdrant_merge_collections.py merges strays back in."
+Write-Host "  Retrieval: BM25 candidates injected by the global filter erp_reports_inject (no vector DB, no knowledge base)."
+Write-Host "  Catalog: .armin/rag/generated/reports-access/reports-access.bm25.json (regenerate with scripts/generate_reports_access_md.py)."

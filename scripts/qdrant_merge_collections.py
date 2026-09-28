@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Merge several Qdrant collections into ONE single collection.
 
+RETIRED (2026-09-28): Maya's report retrieval is BM25 now and no model has a
+knowledge base attached, so the single-collection layout is no longer required.
+Kept for reference / a future vector experiment.
+
 Maya keeps exactly one Qdrant collection (default: ``maya``). Everything - Open
 WebUI knowledge chunks, Open WebUI file chunks, and the standalone ERP report
 rows - lives there and is kept apart by the ``tenant_id`` payload field, which is

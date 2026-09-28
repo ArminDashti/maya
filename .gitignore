@@ -29,3 +29,7 @@ backend/open_webui/static/fonts/NotoSansSC-Variable.ttf
 
 # auto-managed large-file section (>5MB)
 # (paths appended by commit-push-to-github)
+
+__pycache__/
+*.pyc
+

@@ -1,6 +1,6 @@
 # Maya
 
-Local **Open WebUI** chatbot branded **Maya**, at [http://maya.local/](http://maya.local/), with exactly **four** hosted models (OpenRouter + OpenCode Go) and shared ERP RAG over a **single** Qdrant collection.
+Local **Open WebUI** chatbot branded **Maya**, at [http://maya.local/](http://maya.local/), with exactly **four** hosted models (OpenRouter + OpenCode Go) and shared ERP report retrieval: BM25 ranks a generated catalog, the model picks the candidates (no vector database).
 
 | Piece | Source |
 |-------|--------|
@@ -13,8 +13,9 @@ Local **Open WebUI** chatbot branded **Maya**, at [http://maya.local/](http://ma
 1. Docker Desktop running
 2. Environment variables `OPENROUTER_API_KEY` and `OPENCODE_API_KEY` (Windows user env; compose passes them to the container)
 3. External network `pc-armin-local`
-4. Qdrant reachable on `host.docker.internal:6333` (single collection `maya`)
-5. `nginx-gateway` (restart unless-stopped) for `http://maya.local/` and `/maya` → `maya.local`
+4. `nginx-gateway` (restart unless-stopped) for `http://maya.local/` and `/maya` → `maya.local`
+
+No Qdrant and no embedding model are needed for report retrieval any more.
 
 ## Quick start
 
@@ -24,7 +25,9 @@ copy .env.example .env
 # .env has no secrets: the two API keys are read from the environment
 
 .\scripts\install-local-docker.ps1
-.\.armin\rag\sync-maya.ps1     # connections, the four models, knowledge, visibility
+python scripts\generate_reports_access_md.py --json "C:/Users/armin/Desktop/rep_converted.deduped.json" --out ".armin/rag/generated/reports-access"
+python scripts\sync_maya_reports_access.py   # global BM25 filter
+.\.armin\rag\sync-maya.ps1                   # connections, the four models, prompt, skill, visibility
 ```
 
 | URL | Notes |
@@ -53,18 +56,21 @@ Everything else is hidden + deactivated: Ollama is connected but disabled
 base rows stay active for routing but carry `meta.hidden`, which the picker
 filters out).
 
-All four share the whole knowledge store — every knowledge base (`.md` files)
-is attached to each model — plus the unified Skill *Find ERP Report* and the
-global filter that injects ERP vector
-candidates. OpenCode Go additionally wants a stable `x-opencode-session` per
-conversation (connection header `maya-{{CHAT_ID}}`).
+All four share the same retrieval: BM25 candidates injected by the global filter
+plus the unified Skill *Find ERP Report* and the prompt in `sync-maya.ps1`. No
+knowledge base is attached — knowledge search would need the retired vector DB.
+OpenCode Go additionally wants a stable `x-opencode-session` per conversation
+(connection header `maya-{{CHAT_ID}}`).
 
-Re-sync after RAG or model changes:
+Re-sync after prompt, skill or model changes:
 
 ```powershell
 .\.armin\rag\sync-maya.ps1                  # idempotent
-.\.armin\rag\sync-maya.ps1 -RefreshKnowledge # re-embed the .md files (purges their vectors first)
 ```
+
+The model list in `sync-maya.ps1` must match the live picker: it rewrites the four
+models and deactivates everything else, so add any newly added model to `$models`
+before running it.
 
 Performance defaults (low-resource server; tuned 2026-09-23):
 
@@ -72,52 +78,51 @@ Performance defaults (low-resource server; tuned 2026-09-23):
 |---------|-------|-----|
 | Default model | **OpenRouter-Auto** (`DEFAULT_MODELS=openrouter-auto`) | First model in the picker for every user |
 | Task model (`task.model.default`) | **OpenCode-Mimo-v2.6-Flash** | Titles/tags/follow-ups/search-query gen run on the cheap, fast Mimo model (Ollama is disabled) |
-| Retrieval | vector search in Qdrant first → hybrid + CrossEncoder rerank (`mmarco-mMiniLMv2-L12-H384-v1`), `TOP_K=5`, `TOP_K_RERANKER=5`, `RELEVANCE_THRESHOLD=0.4` | Hybrid on; CrossEncoder reorders candidates before the LLM sees them |
-| Retrieval order (enforced) | Global filter `erp_reports_inject` rewrites the user text and searches the `erp_reports` **tenant** of the single `maya` collection, then injects candidates into every chat turn (all four models). Model selects relevant rows and answers as a NameSystem / ParentSystemtxt table. Tool `search_erp_report_access` stays optional. Seeded by `.armin/rag/sync-maya.ps1` + `scripts/sync_maya_reports_access.py` | Works without function calling |
+| Retrieval | BM25 over the mounted catalog (see below), `top_k=10` candidates per turn | Lexical ranking is enough for report titles and needs no embedding model, no Qdrant and no reranker |
+| Retrieval order (enforced) | Global filter `erp_reports_inject` rewrites the user text, ranks the catalog with BM25 and injects candidates into every chat turn (all four models). The model selects the relevant rows and answers with the نام گزارش / آدرس در صفحه / پیوند table | Works without function calling; the model never rebuilds a URL |
 
-## Vector database (Qdrant) — exactly one collection
+## Retrieval (BM25) — no vector database
 
-Maya's retrieval does not run on the in-container Chroma DB any more: `VECTOR_DB=qdrant` points it at the Qdrant container, and **everything lives in one collection** (`maya`).
+Report lookup is lexical: the global filter ranks a generated catalog with Okapi BM25 and injects the top rows as candidates; the model picks the rows that answer the question and renders the table. Nothing is embedded, so there is no separate query/document vector space that can drift apart, and no vector DB has to be up for chat to work.
 
 | Piece | Detail |
 |-------|--------|
-| Vector DB | `qdrant/qdrant` container, host publish `:6333`, storage on `C:\Users\armin\qdrant_storage` |
-| Single collection | `maya` (`QDRANT_COLLECTION_PREFIX=maya`), 384-d cosine. Knowledge `.md` chunks, file chunks and the ERP access rows share it, separated by the payload field `tenant_id` |
-| How | `.armin/patch/qdrant_multitenancy.py` overrides Open WebUI's Qdrant client (bind-mounted in `docker-compose.yml`): every logical collection maps onto `maya`, every read/write/delete stays tenant-scoped |
-| Tenants | knowledge id (`a77534f4-…` = **ERP Reports**, …) · `file-<id>` per uploaded file · `erp_reports` = 3732 ERP access rows |
-| Merge strays back in | `docker cp scripts/qdrant_merge_collections.py maya-openwebui:/tmp/merge.py` then `docker exec maya-openwebui python3 /tmp/merge.py --tenant-override erp_reports=erp_reports --delete-sources` (idempotent) |
-| Embedding model | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` — the previous default `all-MiniLM-L6-v2` is English-only and ranks Persian queries badly |
-| Reranker | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` (multilingual CrossEncoder; hybrid search on) |
-| Global filter | **ERP Reports Vector Inject** (`.armin/rag/filters/erp_reports_inject.py`) — active + global; rewrites query → searches the `erp_reports` tenant of `maya` → injects candidates into every model turn |
-| Chat tool | **Qdrant ERP Report Access Search** (`.armin/rag/tools/qdrant_erp_search.py`) — optional semantic search over the same tenant (person filter); not required when the global filter is on |
-| RAG markdown | `C:\Users\armin\TFS\rag-for-ai\reports\` (`reports-index.md`, `reports.md`) → knowledge **ERP Reports**; `.armin/rag/generated/reports-access/*.md` → knowledge **ERP Reports Access** |
-| Chat answer shape | Persian Markdown grid: **نام گزارش** \| **آدرس صفحه**; address links use `http://erp.dpdc.co:8880/` plus the encoded `ParentSystemtxt` path |
+| Corpus | `.armin/rag/generated/reports-access/reports-access.bm25.json` — 569 distinct report locations (`ن`, `m`, `u`: name, webpage address, URL), generated from `rep_converted.deduped.json` |
+| Mount | compose mounts `.armin/rag/generated/reports-access` read-only at `/app/backend/data/maya-catalog`, so a regenerated catalog is live on the next turn (the filter caches on mtime) |
+| Ranking | Okapi BM25 (`k1=1.2`, `b=0.75`) over normalized Persian tokens: kashida/ZWNJ/digit normalization, letter folding (`ي→ی`, `ك→ک`), small stopword list, plural folding (`فاکتورهای`→`فاکتور`), report-name terms weighted 3x over menu-path terms 2x, plus a phrase bonus when the whole query appears inside a report name |
+| Candidate gate | top 10 rows with a positive score (~2.8k tokens per turn — the percent-encoded ERP URLs dominate; raise/lower with the filter's `top_k` valve); unrelated questions (greetings, other topics) score nothing and the injected block says so |
+| Table | name / address / link, e.g. «لیست دریافت و پرداخت» → `گزارشات › خزانه › لیست دریافت و پرداخت` → `http://erp.dpdc.co:8880/…` |
+| Global filter | **ERP Reports BM25 Inject** (`.armin/rag/filters/erp_reports_inject.py`) — active + global; rewrites the user text, ranks the catalog, injects the candidates into every model turn before the LLM sees it |
+| Model wiring | system prompt + skill *Find ERP Report* (`.armin/rag/sync-maya.ps1`), evaluated with `function_calling="legacy"` — that is what inlines the skill text into the system message instead of gating it behind a `view_skill` tool call |
+| Chat answer shape | Persian Markdown grid: **نام گزارش** \| **آدرس در صفحه** \| **پیوند**; links are copied from the candidate rows (`http://erp.dpdc.co:8880/` plus the encoded report path), never rebuilt by the model |
 
-Rebuild all three pieces:
+`VECTOR_DB=qdrant` stays in `docker-compose.yml` only because Open WebUI requires a
+valid vector DB at startup: no model has a knowledge base attached, so no chat turn
+reaches it. `scripts/qdrant_ingest_erp_reports.py` and `scripts/qdrant_merge_collections.py`
+are retired (kept for reference).
+
+Rebuild the catalog and push the filter:
 
 ```powershell
-# 1) vectors for the access dataset (runs inside maya-openwebui: reuses the cached embedding model;
-#    writes into the shared `maya` collection under tenant erp_reports, --recreate clears only
-#    that tenant - the knowledge .md vectors stay untouched)
-docker cp "C:/Users/armin/Desktop/rep_converted.deduped.json" maya-openwebui:/tmp/rep.json
-docker cp scripts/qdrant_ingest_erp_reports.py maya-openwebui:/tmp/qdrant_ingest.py
-docker exec maya-openwebui python /tmp/qdrant_ingest.py --json /tmp/rep.json --recreate
-
-# 2) RAG-ready markdown from the same dataset
+# 1) catalog (JSON corpus for BM25 + the readable .md table) from the ERP dataset
 python scripts/generate_reports_access_md.py --json "C:/Users/armin/Desktop/rep_converted.deduped.json" --out ".armin/rag/generated/reports-access"
 
-# 3) knowledge collection + tool + global filter + model wiring
+# 2) global filter (active + global) and retire the old Qdrant tool
 python scripts\sync_maya_reports_access.py
+
+# 3) system prompt + skill on the four models
+.\.armin\rag\sync-maya.ps1
 ```
 
 Checks:
 
 ```powershell
-curl.exe http://localhost:6333/collections        # {"result":{"collections":[{"name":"maya"}]}}
-curl.exe http://localhost:6333/collections/maya   # points_count = knowledge + file + 3732 ERP rows
+# rank the catalog offline (no container needed): prints the top rows per probe query
+python .armin/rag/filters/erp_reports_inject.py
+python -c "import json;print(json.load(open('.armin/rag/generated/reports-access/reports-access.bm25.json',encoding='utf-8'))['count'])"
 ```
 
-In chat (any of the four models), ask e.g. «لیست دریافت و پرداخت» — the global filter injects ERP candidates from the `maya` collection; the model answers with a **NameSystem** / **ParentSystemtxt** table. No tool call required.
+In chat (any of the four models), ask e.g. «لیست دریافت و پرداخت» — the filter injects the BM25 candidates and the model answers with a **نام گزارش / آدرس در صفحه / پیوند** table. No tool call required.
 
 ## Providers (OpenRouter + OpenCode Go)
 
@@ -164,6 +169,6 @@ Full wipe:
 - Branding env `WEBUI_NAME=Maya` becomes **Maya (Open WebUI)** under the project license.
 - Ollama is configured (`host.docker.internal:11434`, server `10.10.16.118:11434`) but **disabled** (`ENABLE_OLLAMA_API=false`) so it adds no models to the picker; re-enable it in Admin → Connections if local models are wanted again.
 - The four public models are hosted only: OpenRouter meters `openrouter/auto` by credits (`max_tokens` is capped at 8192 on that model) and OpenCode Go is a $10/month subscription with per-model monthly limits.
-- Qdrant runs outside this compose project (container `pensive_wright`, `qdrant/qdrant`, storage `C:\Users\armin\qdrant_storage`); Maya only needs `host.docker.internal:6333`.
-- Embedding models live in the `maya-openwebui-data` volume and the container runs with `HF_HUB_OFFLINE=1`; after adding a new model to the config, set `HF_HUB_OFFLINE=0`, restart, then set it back.
-- Every model gets the ERP candidates through the global filter **ERP Reports Vector Inject** (no function calling needed) and answers with a NameSystem / ParentSystemtxt table; the optional tool `search_erp_report_access` (attached to all four) is only needed for who-can-access questions.
+- Qdrant (`pensive_wright`, `qdrant/qdrant`, storage `C:\Users\armin\qdrant_storage`) is no longer needed for report retrieval; `VECTOR_DB=qdrant` only satisfies Open WebUI's startup requirement. `.armin/patch/qdrant_multitenancy.py` is still mounted for that leftover config.
+- Every model gets the report candidates through the global filter **ERP Reports BM25 Inject** (no function calling needed) and answers with a **نام گزارش / آدرس در صفحه / پیوند** table; there is no chat tool any more.
+- Persian queries: BM25 folds `ي/ك`, kashida and ZWNJ, digits and plural endings, so «فاکتورهای فروش» and «فاکتور فروش» rank the same rows. It is lexical by design — a question that shares no word with a report name returns no candidate, and the model then says so instead of guessing.

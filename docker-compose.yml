@@ -68,6 +68,16 @@ services:
       WEBUI_ADMIN_PASSWORD: ${WEBUI_ADMIN_PASSWORD:-123456}
       DEFAULT_MODELS: ${DEFAULT_MODELS:-openrouter-auto}
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-change-me-maya-local}
+      # Memory: private per user (DB user_id + Qdrant tenant user-memory-<user_id>).
+      # Bootstrap defaults; sync-maya.ps1 enforces the same values in webui.db
+      # (Admin -> Settings), which wins over env after the first startup.
+      ENABLE_MEMORIES: ${ENABLE_MEMORIES:-true}
+      ENABLE_MEMORY_SYSTEM_CONTEXT: ${ENABLE_MEMORY_SYSTEM_CONTEXT:-true}
+      ENABLE_MEMORY_BACKGROUND_REVIEW: ${ENABLE_MEMORY_BACKGROUND_REVIEW:-false}
+      MEMORIES_REVIEW_INTERVAL_TURNS: ${MEMORIES_REVIEW_INTERVAL_TURNS:-10}
+      MEMORIES_USER_CHAR_LIMIT: ${MEMORIES_USER_CHAR_LIMIT:-2000}
+      MEMORIES_CONTEXT_CHAR_LIMIT: ${MEMORIES_CONTEXT_CHAR_LIMIT:-2000}
+      USER_PERMISSIONS_FEATURES_MEMORIES: ${USER_PERMISSIONS_FEATURES_MEMORIES:-true}
     networks:
       - default
       - pc-armin-local

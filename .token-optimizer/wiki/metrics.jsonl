@@ -123,3 +123,6 @@
 {"schemaVersion":2,"id":"3f-b1e12966","episodeId":"mcp-25812-mujh28sj","sessionId":"mcp-25812-mujh28sj","arm":"full","client":"cli","clientVersion":"2.0.9","kind":"mcp-tool","toolName":"smart_read","durationMs":282,"success":true,"at":1790508398126}
 {"schemaVersion":2,"id":"3g-6e811ebe","episodeId":"mcp-25812-mujh28sj","sessionId":"mcp-25812-mujh28sj","arm":"full","client":"cli","clientVersion":"2.0.9","kind":"mcp-tool","toolName":"smart_read","durationMs":184,"success":true,"at":1790508398168}
 {"schemaVersion":2,"id":"1-eedf3c51","episodeId":"mcp-26096-mujtc4bn","sessionId":"mcp-26096-mujtc4bn","arm":"full","client":"cli","clientVersion":"2.0.9","kind":"mcp-client","clientTitle":null,"at":1790513213145}
+{"schemaVersion":2,"id":"1-d043525a","episodeId":"mcp-38400-munu25jm","sessionId":"mcp-38400-munu25jm","arm":"full","client":"cli","clientVersion":"2.0.20","kind":"mcp-client","clientTitle":null,"at":1790756292750}
+{"schemaVersion":2,"id":"1-cfa0f1f2","episodeId":"mcp-26568-munwjcg1","sessionId":"mcp-26568-munwjcg1","arm":"full","client":"cli","clientVersion":"2.0.20","kind":"mcp-client","clientTitle":null,"at":1790760453989}
+{"schemaVersion":2,"id":"1-6bdcd14a","episodeId":"mcp-33364-munyqg9g","sessionId":"mcp-33364-munyqg9g","arm":"full","client":"cli","clientVersion":"2.0.20","kind":"mcp-client","clientTitle":null,"at":1790764144682}
